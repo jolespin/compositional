@@ -1,7 +1,7 @@
 ### compositional
 Compositional data analysis in Python.
 
-This package is meant to extend the methods of [scikit-bio](http://scikit-bio.org/docs/latest/generated/skbio.stats.composition.html#module-skbio.stats.composition) and serve as a pythonic alternative to [propr](https://github.com/tpq/propr)
+This package is meant to extend the methods of [scikit-bio](http://scikit-bio.org/docs/latest/generated/skbio.stats.composition.html#module-skbio.stats.composition) and serve as a pythonic alternative to [propr](https://github.com/tpq/propr).  For standard compositional data analysis methods, please use `scikit-bio`.
 
 #### Dependencies:
 Compatible for Python 2 and 3.
@@ -62,7 +62,7 @@ pip install git+https://github.com/jolespin/compositional
 import compositional as coda
 import pandas as pd
 
-# Load abundances
+# Load abundances (Gomez and Espinoza et al. 2017)
 X = pd.read_csv("https://github.com/jolespin/supragingival_plaque_microbiome/blob/master/16S_amplicons/Data/X.tsv.gz?raw=true", 
                 sep="\t",
                 index_col=0,
@@ -91,7 +91,4 @@ rhos = coda.pairwise_rho(X)
 # Otu000001   0.469205   1.000000   0.267368   0.468015
 # Otu000038   0.168476   0.267368   1.000000  -0.033662
 # Otu000003   0.207426   0.468015  -0.033662   1.000000
-
-print(vlr.iloc[:4,:4])
-
 ```
