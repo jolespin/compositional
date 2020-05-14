@@ -1,0 +1,10 @@
+MANIFEST.in
+README.md
+setup.py
+compositional/__init__.py
+compositional/compositional.py
+compositional.egg-info/PKG-INFO
+compositional.egg-info/SOURCES.txt
+compositional.egg-info/dependency_links.txt
+compositional.egg-info/requires.txt
+compositional.egg-info/top_level.txt

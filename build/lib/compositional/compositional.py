@@ -1,0 +1,346 @@
+# -*- coding: utf-8 -*-
+from __future__ import print_function, division
+# Built-ins
+import warnings
+from collections import Mapping
+
+# External
+import numpy as np
+import pandas as pd
+from pandas._libs.algos import nancorr
+
+# ===========================
+# Compositional data analysis
+# ===========================
+# Extension of CLR to use custom centroids, references, and zeros without pseudocounts
+def transform_xlr(X, reference_components=None, centroid="mean", return_zeros_as_neginfinity=False, zeros_ok=True):
+    """
+    # Description
+    Extension of CLR to incorporate custom centroids, reference components (iqlr), and handle missing values.
+    This implementation is more versatile than skbio's implementation but that makes it slower if it done iteratively.
+
+    # Documentation on CLR:
+    http://scikit-bio.org/docs/latest/generated/skbio.stats.composition.clr.html#skbio.stats.composition.clr
+    
+    # Parameters
+        * X:
+            - Compositional data
+            (1D): pd.Series or 1D np.array
+            (2D): pd.DataFrame or 2D np.array
+        * centroid: 
+            - Can be precomputed or a function applied to the log-transformed composition(s)
+            (1/2)D: 'mean', 'median', callable function
+            (1D): numeric
+            (2D): pd.Series, dict
+        * reference_components:
+            - Custom group of components used during the centroid calculation
+        * return_zeros_as_neginfinity:
+            True: Returns zeros as -np.inf 
+            False: Returns zeros as np.nan
+        * zeros_ok:
+            True: Mask zeros with np.nan with warning
+            False: Error
+    """
+    n_dimensions = len(X.shape)
+    assert n_dimensions in {1,2}, "`X` must be 1D or 2D"
+    assert np.all(X >= 0), "`X` cannot contain negative values because of log-transformation step."
+    assert not isinstance(reference_components, tuple), "`reference_components` cannot be type tuple"
+    # 1-Dimensional
+    if n_dimensions == 1:
+        # Check for labels
+        components = None
+        if isinstance(X, pd.Series):
+            components = X.index
+            X = X.values
+            if reference_components is None:
+                reference_components = components
+            reference_components = list(map(lambda component: components.get_loc(component), reference_components))
+        X = X.astype(float)
+        
+        # Check for zeros
+        X_contains_zeros = False
+        n_zeros = np.any(X == 0).flatten().sum()
+        if n_zeros:
+            if zeros_ok:
+                mask_zeros = X == 0
+                X[mask_zeros] = np.nan
+                X_contains_zeros = True
+                warnings.warn("N={} zeros detected in `X`.  Masking zeros as NaN and will default to nan-robust functions if 'mean' or 'median' were provided for centroid".format(n_zeros))
+            else:
+                raise Exception("N={} zeros detected in `X`.  Either preprocess, add pseudocounts, or `zeros_ok=True".format(n_zeros))    
+
+        # Log transformation
+        X_log = np.log(X)
+
+        # Centroid
+        centroid_is_string = isinstance(centroid, str)
+        centroid_is_function = hasattr(centroid, "__call__")
+        centroid_is_precomputed = np.issubdtype(type(centroid), np.number)
+
+        if not centroid_is_precomputed:
+            # Get function associated with string for centroid
+            if centroid_is_string:
+                centroid = centroid.lower()
+                assert centroid in {"mean", "median"}, "Please use 'mean','median', or a precomputed centroid"
+                if X_contains_zeros:
+                    centroid = {"mean":np.nanmean, "median":np.nanmedian}[centroid]
+                else:
+                    centroid = {"mean":np.mean, "median":np.median}[centroid]
+                centroid_is_function = True
+
+            # Compute centroid using function
+            if centroid_is_function:
+                func = centroid
+                centroid = func(X_log[reference_components])
+
+        # Transform
+        X_transformed = X_log - centroid
+
+        # Output
+        if all([return_zeros_as_neginfinity, X_contains_zeros]):
+            X_transformed[mask_zeros] = -np.inf
+
+        if components is not None:
+            X_transformed = pd.Series(X_transformed, index=components)
+        return X_transformed
+    
+    # 2-Dimensional
+    if n_dimensions == 2:
+        # Check for labels
+        index = None
+        components = None
+        if isinstance(X, pd.DataFrame):
+            index = X.index
+            components = X.columns
+            X = X.values
+            if reference_components is None:
+                reference_components = components
+            reference_components = list(map(lambda component: components.get_loc(component), reference_components))
+        X = X.astype(float)
+
+        # Check for zeros
+        X_contains_zeros = False
+        n_zeros = np.any(X == 0).flatten().sum()
+        if n_zeros:
+            if zeros_ok:
+                mask_zeros = X == 0
+                X[mask_zeros] = np.nan
+                X_contains_zeros = True
+                warnings.warn("N={} zeros detected in `X`.  Masking zeros as NaN and will default to nan-robust functions if 'mean' or 'median' were provided for centroid".format(n_zeros))
+            else:
+                raise Exception("N={} zeros detected in `X`.  Either preprocess, add pseudocounts, or `zeros_ok=True".format(n_zeros))    
+
+        # Log transformation
+        X_log = np.log(X)
+
+        # Centroid
+        centroid_is_string = isinstance(centroid, str)
+        centroid_is_function = hasattr(centroid, "__call__")
+        centroid_is_precomputed = False
+
+        # Preprocess precomputed centroid
+        if np.all(np.logical_not([centroid_is_string, centroid_is_function])):
+            if index is not None:
+                if isinstance(centroid, Mapping):
+                    centroid = pd.Series(centroid)
+                assert isinstance(centroid, pd.Series), "If `centroid` is dict-like/pd.Series then `X` must be a `pd.DataFrame`."
+                assert set(centroid.index) >= set(index), "Not all indicies from `centroid` are available in `X.index`."
+                centroid = centroid[index].values
+            assert len(centroid) == X_log.shape[0], "Dimensionality is not compatible: centroid.size != X.shape[0]."
+            centroid_is_precomputed = True
+
+        if not centroid_is_precomputed:
+            # Get function associated with string for centroid
+            if centroid_is_string:
+                centroid = centroid.lower()
+                assert centroid in {"mean", "median"}, "Please use 'mean','median', or a precomputed centroid"
+                if X_contains_zeros:
+                    centroid = {"mean":np.nanmean, "median":np.nanmedian}[centroid]
+                else:
+                    centroid = {"mean":np.mean, "median":np.median}[centroid]
+                centroid_is_function = True
+
+            # Compute centroid using function
+            if centroid_is_function:
+                func = centroid
+                # If function has "axis" argument
+                try:
+                    centroid = func(X_log[:,reference_components], axis=-1)
+                # If function does not have "axis" argument
+                except TypeError: 
+                    centroid = list(map(func, X_log[:,reference_components]))
+
+        # Broadcast centroid
+        centroid = np.asarray(centroid)
+        if len(centroid.shape) == 1:
+            centroid = centroid[:,np.newaxis]
+            
+        # Transform
+        X_transformed = X_log - centroid
+
+        # Output
+        if all([return_zeros_as_neginfinity, X_contains_zeros]):
+            X_transformed[mask_zeros] = -np.inf
+
+        if components is not None:
+            X_transformed = pd.DataFrame(X_transformed, index=index, columns=components)
+        return X_transformed
+
+# CLR Normalization
+def transform_clr(X, return_zeros_as_neginfinity=False, zeros_ok=True):
+    """
+    Wrapper around `transform_xlr`
+    
+    # Description
+    Extension of CLR to handle missing values.
+    This implementation is more versatile than skbio's implementation but that makes it slower if it done iteratively.
+
+    # Documentation on CLR:
+    http://scikit-bio.org/docs/latest/generated/skbio.stats.composition.clr.html#skbio.stats.composition.clr
+    
+    # Parameters
+        * X:
+            - Compositional data
+            (1D): pd.Series or 1D np.array
+            (2D): pd.DataFrame or 2D np.array
+        * return_zeros_as_neginfinity:
+            True: Returns zeros as -np.inf 
+            False: Returns zeros as np.nan
+        * zeros_ok:
+            True: Mask zeros with np.nan with warning
+            False: Error
+    """
+    return transform_xlr(X, reference_components=None, centroid="mean", return_zeros_as_neginfinity=return_zeros_as_neginfinity, zeros_ok=zeros_ok)
+
+# Interquartile range log-ratio transform
+def transform_iqlr(X, percentile_range=(25,75), centroid="mean", interval_type="open", return_zeros_as_neginfinity=False, zeros_ok=True, ddof=0):
+    """
+    Wrapper around `transform_xlr`
+
+    # Description
+    Interquartile range log-ratio transform
+    
+    # Parameters
+        * X: pd.DataFrame or 2D np.array
+        * percentile_range: A 2-element tuple of percentiles
+        * interval: 'open' = (a,b) and 'closed' = [a,b].  'open' is used by `propr` R package:
+        * centroid, return_zeros_as_neginfinity, and zeros_ok: See `transform_xlr`
+
+    Adapted from the following source:
+        * https://github.com/tpq/propr/blob/2bd7c44bf59eaac6b4d329d38afd40ac83e2089a/R/2-proprCall.R#L31
+    """
+    # Checks
+    n_dimensions = len(X.shape)
+    assert n_dimensions in {2}, "`X` must be 2D"
+    assert np.all(X >= 0), "`X` cannot contain negative values because of log-transformation step."
+    assert interval_type in {"closed", "open"}, "`interval_type` must be in the following: {closed, open}"
+    percentile_range = tuple(sorted(percentile_range))
+    assert len(percentile_range) == 2, "percentile_range must have 2 elements"
+    
+    index=None
+    components=None
+    if isinstance(X, pd.DataFrame):
+        index = X.index
+        components = X.columns
+        X = X.values
+    # Compute the variance of the XLR transform
+    X_xlr = transform_xlr(X, centroid=centroid, return_zeros_as_neginfinity=False, zeros_ok=zeros_ok)
+    xlr_var = np.nanvar(X_xlr, axis=0, ddof=ddof)
+
+    # Calculate upper and lower bounds from percentiles
+    lower_bound, upper_bound = np.percentile(xlr_var, percentile_range)
+
+    # Get the reference components
+    if interval_type == "open":
+        reference_components = np.where((lower_bound < xlr_var) & (xlr_var < upper_bound))[0]
+
+    if interval_type == "closed":
+        reference_components = np.where((lower_bound <= xlr_var) & (xlr_var <= upper_bound))[0]
+    X_iqlr = transform_xlr(X, reference_components=reference_components, centroid=centroid, return_zeros_as_neginfinity=return_zeros_as_neginfinity, zeros_ok=zeros_ok)
+
+    if components is not None:
+        X_iqlr = pd.DataFrame(X_iqlr, index=index, columns=components)
+    return X_iqlr
+
+# Pairwise variance log-ratio
+def pairwise_vlr(X):
+    """
+    # Description
+    Pairwise variance log-ratio
+    
+    # Parameters
+        * X: pd.DataFrame or 2D np.array
+        
+    Adapted from the following source:
+    * https://github.com/tpq/propr
+    ddof=1 for compatibility with propr package in R
+    To properly handle missing values and optimize speed, nancorr from pandas must be used which does not take ddof
+    """
+    # Checks
+    n_dimensions = len(X.shape)
+    assert n_dimensions in {2}, "`X` must be 2D"
+    assert np.all(X >= 0), "`X` cannot contain negative values because of log-transformation step."
+
+    components = None
+    if isinstance(X, pd.DataFrame):
+        components = X.columns
+        X = X.values
+    X = X.astype("float64")
+    n,m = X.shape
+    
+    # Check for zeros
+    n_zeros = np.any(X == 0).flatten().sum()
+    if n_zeros:
+        raise Exception("N={} zeros detected in `X`.  Either preprocess or add pseudocounts.".format(n_zeros))    
+
+    X_log = np.log(X)
+    covariance = nancorr(X_log, cov=True) # covariance = np.cov(X_log.T, ddof=ddof)
+    diagonal = np.diagonal(covariance)
+    vlr = -2*covariance + diagonal[:,np.newaxis] + diagonal
+    if components is not None:
+        vlr = pd.DataFrame(vlr, index=components, columns=components)
+    return vlr
+
+# Pairwise rho proportionality
+def pairwise_rho(X, reference_components=None, centroid="mean", interval_type="open"):
+    """
+    # Description
+    Pairwise variance log-ratio
+    
+    # Parameters
+        * X: pd.DataFrame or 2D np.array
+        * reference_components: See `transform_xlr`.  Can also be `percentiles` for `transform_iqlr` or 'iqlr' string.
+        * interval: 'open' = (a,b) and 'closed' = [a,b].  'open' is used by `propr` R package:
+        * centroid: See `transform_xlr`
+
+        
+    Adapted from the following source:
+    * https://github.com/tpq/propr
+    Citation:
+    * https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1004075
+    * https://link.springer.com/article/10.1007/s12064-015-0220-8
+    ddof=1 for compatibility with propr package in R
+    """
+    n, m = X.shape
+    components = None
+    if isinstance(X, pd.DataFrame):
+        components = X.columns
+        X = X.values
+        
+    vlr = pairwise_vlr(X)
+    
+    if isinstance(reference_components, str):
+        if reference_components.lower() == "iqlr":
+            reference_components = (25,75)
+    # Use percentiles
+    if isinstance(reference_components, tuple):
+        X_xlr = transform_iqlr(X,percentile_range=reference_components, centroid=centroid, interval_type=interval_type, zeros_ok=False)
+    # Use CLR
+    else:
+        X_xlr = transform_xlr(X, reference_components=reference_components, centroid=centroid, zeros_ok=False)
+
+    variances = np.var(X_xlr, axis=0) # variances = np.var(X_xlr, axis=0, ddof=ddof)
+    rhos = 1 - (vlr/np.add.outer(variances,variances))    
+    if components is not None:
+        rhos = pd.DataFrame(rhos, index=components, columns=components)
+    return rhos
