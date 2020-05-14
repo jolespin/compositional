@@ -1,7 +1,7 @@
 ### compositional
 Compositional data analysis in Python.
 
-This package is meant to extend the methods of [scikit-bio](http://scikit-bio.org/docs/latest/generated/skbio.stats.composition.html#module-skbio.stats.composition) and serve as a pythonic alternative to [propr](https://github.com/tpq/propr).  For standard compositional data analysis methods, please use `scikit-bio`.
+This package is meant to extend the methods of [scikit-bio](http://scikit-bio.org/docs/latest/generated/skbio.stats.composition.html#module-skbio.stats.composition) and serve as a pythonic alternative to [propr](https://github.com/tpq/propr).  For standard compositional data analysis methods, please use `scikit-bio`. 
 
 #### Dependencies:
 Compatible for Python 2 and 3.

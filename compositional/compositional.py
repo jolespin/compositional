@@ -1,13 +1,68 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, division
 # Built-ins
-import warnings
+import sys,warnings,functools
 from collections import Mapping
+from importlib import import_module
 
 # External
 import numpy as np
 import pandas as pd
 from pandas._libs.algos import nancorr
+
+# =========
+# Utilities
+# =========
+# Check packages
+def check_packages(packages, namespace=None, verbose=False):
+    """
+    Check if packages are available (and import into global namespace)
+    If package is a tuple then imports as follows: ("numpy", "np") where "numpy" is full package name and "np" is abbreviation
+    To import packages into current namespace: namespace = globals()
+
+    packages: str, non-tuple iterable
+
+    usage:
+    @check_packages(["sklearn", "scipy", ("numpy", "np")])
+    def f():
+        pass
+
+    Adapted from the following source:
+    soothsayer_utils (https://github.com/jolespin/soothsayer_utils)
+    """
+    # Force packages into sorted non-redundant list
+    if isinstance(packages,(str, tuple)):
+        packages = [packages]
+    packages = set(packages)
+
+    # Set up decorator for package imports   
+    # Wrapper
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            missing_packages = []
+            for pkg in packages:
+                if isinstance(pkg, tuple):
+                    assert len(pkg) == 2, "If a package is tuple type then it must have 2 elements e.g. ('numpy', 'np')"
+                    pkg_name, pkg_variable = pkg
+                else:
+                    pkg_name = pkg_variable = pkg 
+                try:
+                    package = import_module(pkg_name)
+                    globals()[pkg_variable] = package
+                    if namespace is not None:
+                        namespace[pkg_variable] = package
+                    if verbose:
+                        print("Importing {} as {}".format(pkg_name, pkg_variable), True, file=sys.stderr)
+                except ImportError:
+                    missing_packages.append(pkg_name)
+                    if verbose:
+                        print("Cannot import {}:".format(pkg_name), False, file=sys.stderr)
+            assert not missing_packages, "Please install the following packages to use this function:\n{}".format( ", ".join(missing_packages))
+            return func(*args, **kwargs)
+
+        return wrapper
+    return decorator
 
 # ===========================
 # Compositional data analysis
@@ -344,3 +399,4 @@ def pairwise_rho(X, reference_components=None, centroid="mean", interval_type="o
     if components is not None:
         rhos = pd.DataFrame(rhos, index=components, columns=components)
     return rhos
+
