@@ -71,8 +71,8 @@ X = pd.read_csv("https://github.com/jolespin/supragingival_plaque_microbiome/blo
 # Add pseudocount
 delta = 1/X.shape[1]**2 # http://scikit-bio.org/docs/latest/generated/skbio.stats.composition.multiplicative_replacement.html
 X = X + delta
-# print("X.shape = {} | delta={}".format(X.shape, delta))
-# X.shape = (473, 481) | delta=4.322249644494967e-06
+# print("X.shape: (n={} samples, m={} OTUs)| delta={}".format(*X.shape, delta))
+# X.shape: (n=473 samples, m=481 OTUs) | delta=4.322249644494967e-06
 
 # Pairwise variance log-ratio
 vlr = coda.pairwise_vlr(X)
