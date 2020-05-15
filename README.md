@@ -68,7 +68,10 @@ pip install git+https://github.com/jolespin/compositional
    Relative Data. PLoS Computational Biology 11(3):
    doi:10.1371/journal.pcbi.1004075
    
-#### Usage:
+_________________________
+### Usage:
+
+#### Loading package and obtaining data
 ```python
 import compositional as coda
 import pandas as pd
@@ -84,7 +87,10 @@ delta = 1/X.shape[1]**2 # http://scikit-bio.org/docs/latest/generated/skbio.stat
 X = X + delta
 # print("X.shape: (n={} samples, m={} OTUs)| delta={}".format(*X.shape, delta))
 # X.shape: (n=473 samples, m=481 OTUs) | delta=4.322249644494967e-06
+```
 
+#### Pairwise operations
+```
 # Pairwise variance log-ratio
 vlr = coda.pairwise_vlr(X)
 # print(vlr.iloc[:4,:4])
@@ -102,16 +108,21 @@ rhos = coda.pairwise_rho(X)
 # Otu000001   0.469205   1.000000   0.267368   0.468015
 # Otu000038   0.168476   0.267368   1.000000  -0.033662
 # Otu000003   0.207426   0.468015  -0.033662   1.000000
+```
 
-# Isometric log-ratio transform without tree (requires scikit-bio)
+#### Isometric log-ratio transform *without* tree (requires scikit-bio)
+```
+# Isometric log-ratio
 X_ilr_without_tree = coda.transform_ilr(X)
 # print(X_ilr_without_tree.iloc[:4,:4])
 # S-1409-45.B_RD1 -2.671007  -0.142743 -1.101510  17.067981
 # 1104.2_RD1      -2.122899  13.870926 -8.158016  -0.250970
 # S-1409-42.B_RD1 -1.914182  -0.025238 -0.019451  16.660011
 # 1073.1_RD1      -1.884611   2.345849 -2.729035   2.448122
+```
 
-# Isometric log-ratio transform with tree (requires scikit-bio, gneiss [Optional: ete])
+#### Isometric log-ratio transform *with* tree (requires scikit-bio, gneiss, and [Optional: ete[2/3])
+```
 import requests
 from io import StringIO
 from skbio import TreeNode
