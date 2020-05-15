@@ -5,6 +5,12 @@ import sys,warnings,functools
 from collections import Mapping
 from importlib import import_module
 
+# Version specific
+if sys.version_info.major == 2:
+    from StringIO import StringIO
+if sys.version_info.major == 3:
+    from io import StringIO
+
 # External
 import numpy as np
 import pandas as pd
@@ -14,11 +20,12 @@ from pandas._libs.algos import nancorr
 # Utilities
 # =========
 # Check packages
-def check_packages(packages, namespace=None, verbose=False):
+def check_packages(packages, namespace=None, import_into_backend=True, verbose=False):
     """
     Check if packages are available (and import into global namespace)
     If package is a tuple then imports as follows: ("numpy", "np") where "numpy" is full package name and "np" is abbreviation
     To import packages into current namespace: namespace = globals()
+    To import packages in backend, e.g. if this is used in a module/script, use `import_into_backend`
 
     packages: str, non-tuple iterable
 
@@ -49,7 +56,8 @@ def check_packages(packages, namespace=None, verbose=False):
                     pkg_name = pkg_variable = pkg 
                 try:
                     package = import_module(pkg_name)
-                    globals()[pkg_variable] = package
+                    if import_into_backend:
+                        globals()[pkg_variable] = package
                     if namespace is not None:
                         namespace[pkg_variable] = package
                     if verbose:
@@ -399,4 +407,106 @@ def pairwise_rho(X, reference_components=None, centroid="mean", interval_type="o
     if components is not None:
         rhos = pd.DataFrame(rhos, index=components, columns=components)
     return rhos
+
+# ILR Transformation
+@check_packages(["skbio"])
+def transform_ilr(X:pd.DataFrame, tree=None,  check_polytomy=True,  verbose=True):
+    """
+    if `tree` is None then orthonormal basis for Aitchison simplex defaults to J.J.Egozcue orthonormal basis.
+    """
+    # Imports
+    from skbio import TreeNode
+    from skbio.stats.composition import ilr
+
+    assert isinstance(X, pd.DataFrame), "`X` must be a pd.DataFrame"
+    assert not np.any(X == 0), "`X` cannot contain zeros because of log-transforms.  Preprocess or use a pseudocount e.g. (X+1) or (X/(1/X.shape[1]**2))"
+
+    # Determine tree module
+    def _which_tree_type(tree):
+        tree_type = None
+        query_type = str(tree.__class__).split("'")[1].split(".")[0]
+        if query_type in {"skbio"}:
+            tree_type = "skbio"
+        if query_type in {"ete2","ete3"}:
+            tree_type = "ete"
+        assert tree_type is not None, "Please use either skbio or ete[2/3] tree.  Tree type deterined as {}".format(query_type)
+        return tree_type
+
+    # Get leaves from tree
+    def _get_leaves(tree, tree_type):
+        if tree_type == "skbio":
+            leaves_in_tree =  set(map(lambda leaf:leaf.name, tree.tips()))
+        if tree_type == "ete":
+            leaves_in_tree =  set(tree.get_leaf_names())
+        return leaves_in_tree
+
+    def _check_polytomy(tree, tree_type):
+        if tree_type == "ete":
+            # Check bifurcation
+            n_internal_nodes = len(list(filter(lambda node:node.is_leaf() == False, tree.traverse())))
+            n_leaves = len(list(filter(lambda node:node.is_leaf(), tree.traverse())))
+            if n_internal_nodes < (n_leaves - 1):
+                raise Exception("Please resolve tree polytomy and force bifurcation: Use `tree.resolve_polytomy()` before naming nodes for `ete`")
+
+        if tree_type == "skbio":
+            # Check bifurcation
+            n_internal_nodes = len(list(filter(lambda node:node.is_tip() == False, tree.traverse())))
+            n_leaves = len(list(filter(lambda node:node.is_tip(), tree.traverse())))
+            if n_internal_nodes < (n_leaves - 1):
+                raise Exception("Please resolve tree polytomy and force bifurcation: Use `tree.bifurcate()` before naming nodes for `skbio`")
+
+    # ETE Tree
+    if sys.version_info.major == 2:
+        ete_info = ("ete2","ete")
+    if sys.version_info.major == 3:
+        ete_info = ("ete3","ete")
+    @check_packages([ete_info])
+    def _ete_to_skbio( tree):
+        # Convert ete to skbio
+        tree = TreeNode.read(StringIO(tree.write(format=1, format_root_node=True)), convert_underscores=False)
+        return tree
+    
+    # ILR with tree
+    @check_packages(["gneiss"], import_into_backend=False)
+    def _ilr_with_tree(X, tree):
+        # Import ilr_transform from gneiss
+        from gneiss.composition import ilr_transform
+
+        # Check tree type
+        tree_type = _which_tree_type(tree)
+
+        # Check leaves 
+        components = set(X.columns)
+        leaves_in_tree =  _get_leaves(tree=tree, tree_type=tree_type)
+        assert leaves_in_tree <= components, "Not all components (X.columns) are represented in tree"
+
+        # Prune tree
+        if components < leaves_in_tree:
+            tree = tree.copy(method="deepcopy")
+            n_leaves_before_pruning = len(leaves_in_tree)
+            tree.prune(leaf_set_from_X)
+            n_leaves_after_pruning = len(_get_leaves(tree=tree, tree_type=tree_type))
+            n_pruned = n_leaves - n_leaves_after_pruning
+            if verbose:
+                print("Pruned {} attributes to match components (X.columns)".format(n_pruned), file=sys.stderr)
+
+        # Polytomy
+        if check_polytomy:
+            _check_polytomy(tree=tree, tree_type=tree_type)
+
+        # ETE
+        if tree_type == "ete":
+            tree = _ete_to_skbio(tree=tree)
+        return ilr_transform(table=X, tree=tree)
+        
+    # ILR without tree
+    def _ilr_without_tree(X):
+        return pd.DataFrame(ilr(X), index=X.index)
+
+    # Without tree
+    if tree is None:
+        return _ilr_without_tree(X=X)
+    # With tree
+    else:
+        return _ilr_with_tree(X=X, tree=tree)
 

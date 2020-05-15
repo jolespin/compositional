@@ -6,8 +6,19 @@ This package is meant to extend the methods of [scikit-bio](http://scikit-bio.or
 #### Dependencies:
 Compatible for Python 2 and 3.
 
-	pandas
-	numpy
+```
+# Required:
+pandas
+numpy
+
+# Optional:
+scikit-bio
+gneiss
+ete[2/3]
+```	
+	
+
+		
 
 #### Install:
 ```
@@ -91,4 +102,39 @@ rhos = coda.pairwise_rho(X)
 # Otu000001   0.469205   1.000000   0.267368   0.468015
 # Otu000038   0.168476   0.267368   1.000000  -0.033662
 # Otu000003   0.207426   0.468015  -0.033662   1.000000
+
+# Isometric log-ratio transform without tree (requires scikit-bio)
+X_ilr_without_tree = coda.transform_ilr(X)
+# print(X_ilr_without_tree.iloc[:4,:4])
+# S-1409-45.B_RD1 -2.671007  -0.142743 -1.101510  17.067981
+# 1104.2_RD1      -2.122899  13.870926 -8.158016  -0.250970
+# S-1409-42.B_RD1 -1.914182  -0.025238 -0.019451  16.660011
+# 1073.1_RD1      -1.884611   2.345849 -2.729035   2.448122
+
+# Isometric log-ratio transform with tree (requires scikit-bio, gneiss [Optional: ete])
+import requests
+from io import StringIO
+from skbio import TreeNode
+
+# Get newick tree
+url = "https://github.com/jolespin/supragingival_plaque_microbiome/blob/master/16S_amplicons/Data/otus.alignment.fasttree.nw?raw=true"
+newick = requests.get(url).text
+tree = TreeNode.read(StringIO(newick), convert_underscores=False)
+tree.bifurcate()
+
+# Name internal nodes
+intermediate_node_index = 1
+for node in tree.traverse():
+    if not node.is_tip():
+        node.name = "y{}".format(intermediate_node_index)
+        intermediate_node_index += 1
+
+# Isometric log-ratio transform
+X_ilr_with_tree = coda.transform_ilr(X, tree)
+# print(X_ilr_with_tree.iloc[:4,:4])
+#                        y1         y2          y480            y3
+# S-1409-45.B_RD1 -5.022283   7.999347 -1.526686e-16  3.387754e-15
+# 1104.2_RD1      -3.676812   5.856319 -1.415420e-17  2.272686e-15
+# S-1409-42.B_RD1 -6.413369  10.215028  9.148268e-17  3.511751e-15
+# 1073.1_RD1      -4.608491   7.340271  2.027126e-16  2.519377e-15
 ```

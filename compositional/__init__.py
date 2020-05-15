@@ -33,7 +33,7 @@
 # =======
 # Version
 # =======
-__version__= "2020.05.14b"
+__version__= "2020.05.15"
 __author__ = "Josh L. Espinoza"
 __email__ = "jespinoz@jcvi.org, jol.espinoz@gmail.com"
 __url__ = "https://github.com/jolespin/compositional"
@@ -44,7 +44,11 @@ __developmental__ = True
 # Direct Exports
 # =======
 __functions__ = [
-    "transform_xlr", "transform_clr", "transform_iqlr", "pairwise_vlr", "pairwise_rho",
+    # Transforms
+    "transform_xlr", "transform_clr", "transform_iqlr", "transform_ilr",
+    # Pairwise
+    "pairwise_vlr", "pairwise_rho",
+    # Utilities
     "check_packages",
 ]
 __classes__ = []
