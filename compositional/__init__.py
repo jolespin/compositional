@@ -33,7 +33,7 @@
 # =======
 # Version
 # =======
-__version__= "2020.05.15"
+__version__= "2020.05.16"
 __author__ = "Josh L. Espinoza"
 __email__ = "jespinoz@jcvi.org, jol.espinoz@gmail.com"
 __url__ = "https://github.com/jolespin/compositional"

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, division
+
 # Built-ins
 import sys,warnings,functools
 from collections import Mapping
@@ -465,6 +466,14 @@ def transform_ilr(X:pd.DataFrame, tree=None,  check_polytomy=True,  verbose=True
         # Convert ete to skbio
         tree = TreeNode.read(StringIO(tree.write(format=1, format_root_node=True)), convert_underscores=False)
         return tree
+
+    def _prune_tree(tree, tree_type, leaves):
+        if tree_type == "ete":
+            tree.prune(leaves)
+        if tree_type == "skbio":
+            tree = tree.shear(leaves)
+            tree.prune()
+        return tree
     
     # ILR with tree
     @check_packages(["gneiss"], import_into_backend=False)
@@ -478,15 +487,15 @@ def transform_ilr(X:pd.DataFrame, tree=None,  check_polytomy=True,  verbose=True
         # Check leaves 
         components = set(X.columns)
         leaves_in_tree =  _get_leaves(tree=tree, tree_type=tree_type)
-        assert leaves_in_tree <= components, "Not all components (X.columns) are represented in tree"
+        assert components <= leaves_in_tree, "Not all components (X.columns) are represented in tree"
 
         # Prune tree
         if components < leaves_in_tree:
-            tree = tree.copy(method="deepcopy")
+            tree = tree.copy()
             n_leaves_before_pruning = len(leaves_in_tree)
-            tree.prune(leaf_set_from_X)
+            tree = _prune_tree(tree=tree, tree_type=tree_type, leaves=components)
             n_leaves_after_pruning = len(_get_leaves(tree=tree, tree_type=tree_type))
-            n_pruned = n_leaves - n_leaves_after_pruning
+            n_pruned = n_leaves_before_pruning - n_leaves_after_pruning
             if verbose:
                 print("Pruned {} attributes to match components (X.columns)".format(n_pruned), file=sys.stderr)
 
