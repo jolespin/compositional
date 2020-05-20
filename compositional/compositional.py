@@ -366,16 +366,18 @@ def pairwise_vlr(X):
     return vlr
 
 # Pairwise rho proportionality
-def pairwise_rho(X, reference_components=None, centroid="mean", interval_type="open"):
+def pairwise_rho(X=None, reference_components=None, centroid="mean", interval_type="open", xlr=None, vlr=None):
     """
     # Description
-    Pairwise variance log-ratio
+    Pairwise proportionality `rho` (Erb et al. 2016)
     
     # Parameters
-        * X: pd.DataFrame or 2D np.array
+        * X: pd.DataFrame or 2D np.array of compositional data (rows=samples, columns=components)
         * reference_components: See `transform_xlr`.  Can also be `percentiles` for `transform_iqlr` or 'iqlr' string.
         * interval: 'open' = (a,b) and 'closed' = [a,b].  'open' is used by `propr` R package:
         * centroid: See `transform_xlr`
+        * xlr: pd.DataFrame or 2D np.array of transformed compositional data (e.g. clr, iqlr) (must be used with `vlr` and not `X`)
+        * vlr: pd.DataFrame or 2D np.array of variance log-ratios (must be used with `xlr` and not `X`)
 
         
     Adapted from the following source:
@@ -385,29 +387,107 @@ def pairwise_rho(X, reference_components=None, centroid="mean", interval_type="o
     * https://link.springer.com/article/10.1007/s12064-015-0220-8
     ddof=1 for compatibility with propr package in R
     """
-    n, m = X.shape
     components = None
-    if isinstance(X, pd.DataFrame):
-        components = X.columns
-        X = X.values
-        
-    vlr = pairwise_vlr(X)
-    
-    if isinstance(reference_components, str):
-        if reference_components.lower() == "iqlr":
-            reference_components = (25,75)
-    # Use percentiles
-    if isinstance(reference_components, tuple):
-        X_xlr = transform_iqlr(X,percentile_range=reference_components, centroid=centroid, interval_type=interval_type, zeros_ok=False)
-    # Use CLR
-    else:
-        X_xlr = transform_xlr(X, reference_components=reference_components, centroid=centroid, zeros_ok=False)
+    # Compute xlr and vlr from X
+    if X is not None:
+        assert all(map(lambda x: x is None, [xlr, vlr])), "If `X` is not None then `xlr` and `vlr` cannot be provided."
+        if isinstance(X, pd.DataFrame):
+            components = X.columns
+            X = X.values
 
-    variances = np.var(X_xlr, axis=0) # variances = np.var(X_xlr, axis=0, ddof=ddof)
+        vlr = pairwise_vlr(X)
+        if isinstance(reference_components, str):
+            if reference_components.lower() == "iqlr":
+                reference_components = (25,75)
+        # Use percentiles
+        if isinstance(reference_components, tuple):
+            xlr = transform_iqlr(X,percentile_range=reference_components, centroid=centroid, interval_type=interval_type, zeros_ok=False)
+        # Use CLR
+        else:
+            xlr = transform_xlr(X, reference_components=reference_components, centroid=centroid, zeros_ok=False)
+    # Provide xlr and vlr
+    else:
+        assert all(map(lambda x: x is not None, [xlr,vlr])), "If `X` is None then `xlr` and `vlr` must be provided."
+        assert type(xlr) is type(vlr), "`xlr` and `vlr` should be same type (i.e. pd.DataFrame, np.ndarray)"
+        if isinstance(xlr, pd.DataFrame):
+            assert np.all(xlr.columns == vlr.columns) & np.all(xlr.columns == vlr.index), "`xlr.columns` need to be the same as `vlr.index` and `vlr.columns`"
+            components = xlr.columns
+            xlr = xlr.values
+            vlr = vlr.values
+            
+    # rho (Erb et al. 2016)
+    n, m = xlr.shape
+    variances = np.var(xlr, axis=0) # variances = np.var(X_xlr, axis=0, ddof=ddof)
     rhos = 1 - (vlr/np.add.outer(variances,variances))    
     if components is not None:
         rhos = pd.DataFrame(rhos, index=components, columns=components)
     return rhos
+
+# Pairwise phi proportionality
+def pairwise_phi(X=None, symmetrize=True, triangle="lower", reference_components=None, centroid="mean", interval_type="open", xlr=None, vlr=None):
+    """
+    # Description
+    Pairwise proportionality `phi` (Lovell et al. 2015)
+    
+    # Parameters
+        * X: pd.DataFrame or 2D np.array of compositional data (rows=samples, columns=components)
+        * symmetrize: Force symmetric matrix
+        * triangle: Use lower or upper triangle for reference during symmetrization
+        * reference_components: See `transform_xlr`.  Can also be `percentiles` for `transform_iqlr` or 'iqlr' string.
+        * interval: 'open' = (a,b) and 'closed' = [a,b].  'open' is used by `propr` R package:
+        * centroid: See `transform_xlr`
+        * xlr: pd.DataFrame or 2D np.array of transformed compositional data (e.g. clr, iqlr) (must be used with `vlr` and not `X`)
+        * vlr: pd.DataFrame or 2D np.array of variance log-ratios (must be used with `xlr` and not `X`)
+        
+    Adapted from the following source:
+    * https://github.com/tpq/propr
+    Citation:
+    * https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1004075
+    ddof=1 for compatibility with propr package in R
+    """
+    components = None
+    # Compute xlr and vlr from X
+    if X is not None:
+        assert all(map(lambda x: x is None, [xlr, vlr])), "If `X` is not None then `xlr` and `vlr` cannot be provided."
+        if isinstance(X, pd.DataFrame):
+            components = X.columns
+            X = X.values
+
+        vlr = pairwise_vlr(X)
+        if isinstance(reference_components, str):
+            if reference_components.lower() == "iqlr":
+                reference_components = (25,75)
+        # Use percentiles
+        if isinstance(reference_components, tuple):
+            xlr = transform_iqlr(X,percentile_range=reference_components, centroid=centroid, interval_type=interval_type, zeros_ok=False)
+        # Use CLR
+        else:
+            xlr = transform_xlr(X, reference_components=reference_components, centroid=centroid, zeros_ok=False)
+    # Provide xlr and vlr
+    else:
+        assert all(map(lambda x: x is not None, [xlr,vlr])), "If `X` is None then `xlr` and `vlr` must be provided."
+        assert type(xlr) is type(vlr), "`xlr` and `vlr` should be same type (i.e. pd.DataFrame, np.ndarray)"
+        if isinstance(xlr, pd.DataFrame):
+            assert np.all(xlr.columns == vlr.columns) & np.all(xlr.columns == vlr.index), "`xlr.columns` need to be the same as `vlr.index` and `vlr.columns`"
+            components = xlr.columns
+            xlr = xlr.values
+            vlr = vlr.values
+            
+    # phi (Lovell et al. 2015)
+    n, m = xlr.shape
+    variances = np.var(xlr, axis=0)#[:,np.newaxis]
+    phis = vlr/variances   
+    if symmetrize:
+        assert triangle in {"lower","upper"}, "`triangle` must be one of the following: {'lower','upper'}"
+        if triangle == "upper":
+            idx_triangle = np.tril_indices(m, -1)
+        if triangle == "lower":
+            idx_triangle = np.triu_indices(m, 1)
+        phis[idx_triangle] = phis.T[idx_triangle]
+    if components is not None:
+        phis = pd.DataFrame(phis, index=components, columns=components)
+    return phis
+
 
 # ILR Transformation
 @check_packages(["skbio"])
