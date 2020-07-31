@@ -28,7 +28,7 @@ pip install compositional
 pip install git+https://github.com/jolespin/compositional
 ```
 
-#### Adapted from the following source:
+#### Proportionality methods adapted from the following source:
 * [propr: An R package to calculate proportionality between vectors of compositional data
  (Thomm Quinn)](https://github.com/tpq/propr)
  
