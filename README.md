@@ -32,7 +32,7 @@ pip install git+https://github.com/jolespin/compositional
 * [propr: An R package to calculate proportionality between vectors of compositional data
  (Thomm Quinn)](https://github.com/tpq/propr)
  
-#### Isometric log-ratio methods using the following sources:
+#### Isometric log-ratio methods use the following sources:
 * [scikit-bio: A package providing data structures, algorithms and educational resources for bioinformatics](https://github.com/biocore/scikit-bio)
 * [gneiss: a compositional data analysis toolbox designed for analyzing high dimensional proportions (Jamie Morton)](https://github.com/biocore/gneiss)
 
@@ -74,7 +74,7 @@ pip install git+https://github.com/jolespin/compositional
    * James T Morton, Jon Sanders, Robert A Quinn, Daniel McDonald, Antonio Gonzalez, Yoshiki Vázquez-Baeza, Jose A Navas-Molina, Se Jin Song, Jessica L Metcalf, Embriette R Hyde, Manuel Lladser, Pieter C Dorrestein, Rob Knight (2017) Balance Trees Reveal Microbial Niche Differentiation. mSystems. e00162-16. doi: 10.1128/mSystems.00162-16
 
 
-	#### Citations (Debut):
+#### Citations (Debut):
    
    * Espinoza JL., Shah N, Singh S, Nelson KE., Dupont CL. Applications of weighted association networks applied to compositional data in biology. https://doi.org/10.1111/1462-2920.15091
 _________________________
