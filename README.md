@@ -71,7 +71,7 @@ pip install git+https://github.com/jolespin/compositional
    Relative Data. PLoS Computational Biology 11(3):
    doi:10.1371/journal.pcbi.1004075
    
-   * James T Morton, Jon Sanders, Robert A Quinn, Daniel McDonald, Antonio Gonzalez, Yoshiki Vázquez-Baeza, Jose A Navas-Molina, Se Jin Song, Jessica L Metcalf, Embriette R Hyde, Manuel Lladser, Pieter C Dorrestein, Rob Knight (2017) Balance Trees Reveal Microbial Niche Differentiation. mSystems. e00162-16. doi: 10.1128/mSystems.00162-16
+   * Morton, J.T., Sanders, J., Quinn, R.A., McDonald, D., Gonzalez, A., Vázquez‐Baeza, Y., et al . (2017) Balance trees reveal microbial niche differentiation. mSystems: e00162‐16. doi: 10.1128/mSystems.00162-16
 
 
 #### Citations (Debut):
