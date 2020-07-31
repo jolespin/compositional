@@ -29,8 +29,12 @@ pip install git+https://github.com/jolespin/compositional
 ```
 
 #### Adapted from the following source:
-[propr: An R package to calculate proportionality between vectors of compositional data
+* [propr: An R package to calculate proportionality between vectors of compositional data
  (Thomm Quinn)](https://github.com/tpq/propr)
+ 
+#### Isometric log-ratio methods using the following sources:
+* [scikit-bio: A package providing data structures, algorithms and educational resources for bioinformatics](https://github.com/biocore/scikit-bio)
+* [gneiss: a compositional data analysis toolbox designed for analyzing high dimensional proportions (Jamie Morton)](https://github.com/biocore/gneiss)
 
  
 #### Citations (Code):
@@ -58,7 +62,6 @@ pip install git+https://github.com/jolespin/compositional
    Compositional Data Analysis Workshop; available under bioRxiv
    134536: doi:10.1101/134536
  
- 
    * Erb I, Notredame C (2016) How should we measure proportionality
    on relative gene expression data? Theory in Biosciences 135(1):
    doi:10.1007/s12064-015-0220-8
@@ -68,6 +71,12 @@ pip install git+https://github.com/jolespin/compositional
    Relative Data. PLoS Computational Biology 11(3):
    doi:10.1371/journal.pcbi.1004075
    
+   * James T Morton, Jon Sanders, Robert A Quinn, Daniel McDonald, Antonio Gonzalez, Yoshiki Vázquez-Baeza, Jose A Navas-Molina, Se Jin Song, Jessica L Metcalf, Embriette R Hyde, Manuel Lladser, Pieter C Dorrestein, Rob Knight (2017) Balance Trees Reveal Microbial Niche Differentiation. mSystems. e00162-16. doi: 10.1128/mSystems.00162-16
+
+
+	#### Citations (Debut):
+   
+   * Espinoza JL., Shah N, Singh S, Nelson KE., Dupont CL. Applications of weighted association networks applied to compositional data in biology. https://doi.org/10.1111/1462-2920.15091
 _________________________
 ### Usage:
 
