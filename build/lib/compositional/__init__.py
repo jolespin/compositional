@@ -17,7 +17,7 @@
 # =======
 # https://opensource.org/licenses/BSD-3-Clause
 #
-# Copyright 2018 Josh L. Espinoza
+# Copyright 2020 Josh L. Espinoza
 #
 # Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 #
@@ -33,7 +33,7 @@
 # =======
 # Version
 # =======
-__version__= "2020.05.14b"
+__version__= "2020.05.19"
 __author__ = "Josh L. Espinoza"
 __email__ = "jespinoz@jcvi.org, jol.espinoz@gmail.com"
 __url__ = "https://github.com/jolespin/compositional"
@@ -44,7 +44,11 @@ __developmental__ = True
 # Direct Exports
 # =======
 __functions__ = [
-    "transform_xlr", "transform_clr", "transform_iqlr", "pairwise_vlr", "pairwise_rho",
+    # Transforms
+    "transform_xlr", "transform_clr", "transform_iqlr", "transform_ilr",
+    # Pairwise
+    "pairwise_vlr", "pairwise_rho","pairwise_phi",
+    # Utilities
     "check_packages",
 ]
 __classes__ = []

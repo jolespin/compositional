@@ -112,11 +112,11 @@ vlr = coda.pairwise_vlr(X)
 # Pairwise rho from Erb et al. 2016
 rhos = coda.pairwise_rho(X)
 # print(rhos.iloc[:4,:4])
-#            Otu000514  Otu000001  Otu000038  Otu000003
-# Otu000514   1.000000   0.469205   0.168476   0.207426
-# Otu000001   0.469205   1.000000   0.267368   0.468015
-# Otu000038   0.168476   0.267368   1.000000  -0.033662
-# Otu000003   0.207426   0.468015  -0.033662   1.000000
+# 				Otu000514  Otu000001  Otu000038  Otu000003
+# Otu000514   1.000000   0.470328   0.170234   0.209101
+# Otu000001   0.470328   1.000000   0.268917   0.469140
+# Otu000038   0.170234   0.268917   1.000000  -0.031477
+# Otu000003   0.209101   0.469140  -0.031477   1.000000
 ```
 
 #### Isometric log-ratio transform *without* tree (requires scikit-bio)
@@ -158,3 +158,6 @@ X_ilr_with_tree = coda.transform_ilr(X, tree)
 # S-1409-42.B_RD1 -6.413369  10.215028  9.148268e-17  3.511751e-15
 # 1073.1_RD1      -4.608491   7.340271  2.027126e-16  2.519377e-15
 ```
+
+#### Notes:
+* Versions prior to v2020.12.16 used `ddof=0` for all variance except during the `vlr` calculation.  This was because `pandas._libs.algos.nancorr` uses `ddof=1` and not `ddof=0`.  This caused specific `rho` values not to be bound by [-1,1].  To retain the performance of `nancorr`, I've set all `ddof=1` to match `nancorr`. 

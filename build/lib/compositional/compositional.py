@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import print_function, division
+
 # Built-ins
 import sys,warnings,functools
 from collections import Mapping
@@ -365,16 +366,18 @@ def pairwise_vlr(X):
     return vlr
 
 # Pairwise rho proportionality
-def pairwise_rho(X, reference_components=None, centroid="mean", interval_type="open"):
+def pairwise_rho(X=None, reference_components=None, centroid="mean", interval_type="open", xlr=None, vlr=None):
     """
     # Description
-    Pairwise variance log-ratio
+    Pairwise proportionality `rho` (Erb et al. 2016)
     
     # Parameters
-        * X: pd.DataFrame or 2D np.array
+        * X: pd.DataFrame or 2D np.array of compositional data (rows=samples, columns=components)
         * reference_components: See `transform_xlr`.  Can also be `percentiles` for `transform_iqlr` or 'iqlr' string.
         * interval: 'open' = (a,b) and 'closed' = [a,b].  'open' is used by `propr` R package:
         * centroid: See `transform_xlr`
+        * xlr: pd.DataFrame or 2D np.array of transformed compositional data (e.g. clr, iqlr) (must be used with `vlr` and not `X`)
+        * vlr: pd.DataFrame or 2D np.array of variance log-ratios (must be used with `xlr` and not `X`)
 
         
     Adapted from the following source:
@@ -384,33 +387,111 @@ def pairwise_rho(X, reference_components=None, centroid="mean", interval_type="o
     * https://link.springer.com/article/10.1007/s12064-015-0220-8
     ddof=1 for compatibility with propr package in R
     """
-    n, m = X.shape
     components = None
-    if isinstance(X, pd.DataFrame):
-        components = X.columns
-        X = X.values
-        
-    vlr = pairwise_vlr(X)
-    
-    if isinstance(reference_components, str):
-        if reference_components.lower() == "iqlr":
-            reference_components = (25,75)
-    # Use percentiles
-    if isinstance(reference_components, tuple):
-        X_xlr = transform_iqlr(X,percentile_range=reference_components, centroid=centroid, interval_type=interval_type, zeros_ok=False)
-    # Use CLR
-    else:
-        X_xlr = transform_xlr(X, reference_components=reference_components, centroid=centroid, zeros_ok=False)
+    # Compute xlr and vlr from X
+    if X is not None:
+        assert all(map(lambda x: x is None, [xlr, vlr])), "If `X` is not None then `xlr` and `vlr` cannot be provided."
+        if isinstance(X, pd.DataFrame):
+            components = X.columns
+            X = X.values
 
-    variances = np.var(X_xlr, axis=0) # variances = np.var(X_xlr, axis=0, ddof=ddof)
+        vlr = pairwise_vlr(X)
+        if isinstance(reference_components, str):
+            if reference_components.lower() == "iqlr":
+                reference_components = (25,75)
+        # Use percentiles
+        if isinstance(reference_components, tuple):
+            xlr = transform_iqlr(X,percentile_range=reference_components, centroid=centroid, interval_type=interval_type, zeros_ok=False)
+        # Use CLR
+        else:
+            xlr = transform_xlr(X, reference_components=reference_components, centroid=centroid, zeros_ok=False)
+    # Provide xlr and vlr
+    else:
+        assert all(map(lambda x: x is not None, [xlr,vlr])), "If `X` is None then `xlr` and `vlr` must be provided."
+        assert type(xlr) is type(vlr), "`xlr` and `vlr` should be same type (i.e. pd.DataFrame, np.ndarray)"
+        if isinstance(xlr, pd.DataFrame):
+            assert np.all(xlr.columns == vlr.columns) & np.all(xlr.columns == vlr.index), "`xlr.columns` need to be the same as `vlr.index` and `vlr.columns`"
+            components = xlr.columns
+            xlr = xlr.values
+            vlr = vlr.values
+            
+    # rho (Erb et al. 2016)
+    n, m = xlr.shape
+    variances = np.var(xlr, axis=0) # variances = np.var(X_xlr, axis=0, ddof=ddof)
     rhos = 1 - (vlr/np.add.outer(variances,variances))    
     if components is not None:
         rhos = pd.DataFrame(rhos, index=components, columns=components)
     return rhos
 
+# Pairwise phi proportionality
+def pairwise_phi(X=None, symmetrize=True, triangle="lower", reference_components=None, centroid="mean", interval_type="open", xlr=None, vlr=None):
+    """
+    # Description
+    Pairwise proportionality `phi` (Lovell et al. 2015)
+    
+    # Parameters
+        * X: pd.DataFrame or 2D np.array of compositional data (rows=samples, columns=components)
+        * symmetrize: Force symmetric matrix
+        * triangle: Use lower or upper triangle for reference during symmetrization
+        * reference_components: See `transform_xlr`.  Can also be `percentiles` for `transform_iqlr` or 'iqlr' string.
+        * interval: 'open' = (a,b) and 'closed' = [a,b].  'open' is used by `propr` R package:
+        * centroid: See `transform_xlr`
+        * xlr: pd.DataFrame or 2D np.array of transformed compositional data (e.g. clr, iqlr) (must be used with `vlr` and not `X`)
+        * vlr: pd.DataFrame or 2D np.array of variance log-ratios (must be used with `xlr` and not `X`)
+        
+    Adapted from the following source:
+    * https://github.com/tpq/propr
+    Citation:
+    * https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1004075
+    ddof=1 for compatibility with propr package in R
+    """
+    components = None
+    # Compute xlr and vlr from X
+    if X is not None:
+        assert all(map(lambda x: x is None, [xlr, vlr])), "If `X` is not None then `xlr` and `vlr` cannot be provided."
+        if isinstance(X, pd.DataFrame):
+            components = X.columns
+            X = X.values
+
+        vlr = pairwise_vlr(X)
+        if isinstance(reference_components, str):
+            if reference_components.lower() == "iqlr":
+                reference_components = (25,75)
+        # Use percentiles
+        if isinstance(reference_components, tuple):
+            xlr = transform_iqlr(X,percentile_range=reference_components, centroid=centroid, interval_type=interval_type, zeros_ok=False)
+        # Use CLR
+        else:
+            xlr = transform_xlr(X, reference_components=reference_components, centroid=centroid, zeros_ok=False)
+    # Provide xlr and vlr
+    else:
+        assert all(map(lambda x: x is not None, [xlr,vlr])), "If `X` is None then `xlr` and `vlr` must be provided."
+        assert type(xlr) is type(vlr), "`xlr` and `vlr` should be same type (i.e. pd.DataFrame, np.ndarray)"
+        if isinstance(xlr, pd.DataFrame):
+            assert np.all(xlr.columns == vlr.columns) & np.all(xlr.columns == vlr.index), "`xlr.columns` need to be the same as `vlr.index` and `vlr.columns`"
+            components = xlr.columns
+            xlr = xlr.values
+            vlr = vlr.values
+            
+    # phi (Lovell et al. 2015)
+    n, m = xlr.shape
+    variances = np.var(xlr, axis=0)#[:,np.newaxis]
+    phis = vlr/variances   
+    if symmetrize:
+        assert triangle in {"lower","upper"}, "`triangle` must be one of the following: {'lower','upper'}"
+        if triangle == "upper":
+            idx_triangle = np.tril_indices(m, -1)
+        if triangle == "lower":
+            idx_triangle = np.triu_indices(m, 1)
+        phis[idx_triangle] = phis.T[idx_triangle]
+    if components is not None:
+        phis = pd.DataFrame(phis, index=components, columns=components)
+    return phis
+
+
 # ILR Transformation
 @check_packages(["skbio"])
-def transform_ilr(X:pd.DataFrame, tree=None,  polytomy_kws=dict(), verbose=True):
+def transform_ilr(X:pd.DataFrame, tree=None,  check_polytomy=True,  verbose=True):
     """
     if `tree` is None then orthonormal basis for Aitchison simplex defaults to J.J.Egozcue orthonormal basis.
     """
@@ -422,7 +503,7 @@ def transform_ilr(X:pd.DataFrame, tree=None,  polytomy_kws=dict(), verbose=True)
     assert not np.any(X == 0), "`X` cannot contain zeros because of log-transforms.  Preprocess or use a pseudocount e.g. (X+1) or (X/(1/X.shape[1]**2))"
 
     # Determine tree module
-    def _which_tree_type(tree):
+    def _infer_tree_type(tree):
         tree_type = None
         query_type = str(tree.__class__).split("'")[1].split(".")[0]
         if query_type in {"skbio"}:
@@ -440,51 +521,71 @@ def transform_ilr(X:pd.DataFrame, tree=None,  polytomy_kws=dict(), verbose=True)
             leaves_in_tree =  set(tree.get_leaf_names())
         return leaves_in_tree
 
+    def _check_polytomy(tree, tree_type):
+        if tree_type == "ete":
+            # Check bifurcation
+            n_internal_nodes = len(list(filter(lambda node:node.is_leaf() == False, tree.traverse())))
+            n_leaves = len(list(filter(lambda node:node.is_leaf(), tree.traverse())))
+            if n_internal_nodes < (n_leaves - 1):
+                raise Exception("Please resolve tree polytomy and force bifurcation: Use `tree.resolve_polytomy()` before naming nodes for `ete`")
+
+        if tree_type == "skbio":
+            # Check bifurcation
+            n_internal_nodes = len(list(filter(lambda node:node.is_tip() == False, tree.traverse())))
+            n_leaves = len(list(filter(lambda node:node.is_tip(), tree.traverse())))
+            if n_internal_nodes < (n_leaves - 1):
+                raise Exception("Please resolve tree polytomy and force bifurcation: Use `tree.bifurcate()` before naming nodes for `skbio`")
+
     # ETE Tree
     if sys.version_info.major == 2:
         ete_info = ("ete2","ete")
     if sys.version_info.major == 3:
         ete_info = ("ete3","ete")
     @check_packages([ete_info])
-    def _ete_to_skbio_resolve_polytomy( tree, polytomy_kws):
-        # Check bifurcation
-        n_internal_nodes = len(list(filter(lambda node:node.is_leaf() == False, tree.traverse())))
-        n_leaves = len(list(filter(lambda node:node.is_leaf(), tree.traverse())))
-        if n_internal_nodes < (n_leaves - 1):
-            tree.resolve_polytomy(**polytomy_kws)
-            if verbose:
-                print("Resolving tree polytomy and forcing bifurcation", file=sys.stderr)
+    def _ete_to_skbio( tree):
         # Convert ete to skbio
         tree = TreeNode.read(StringIO(tree.write(format=1, format_root_node=True)), convert_underscores=False)
+        return tree
+
+    def _prune_tree(tree, tree_type, leaves):
+        if tree_type == "ete":
+            tree.prune(leaves)
+        if tree_type == "skbio":
+            tree = tree.shear(leaves)
+            tree.prune()
         return tree
     
     # ILR with tree
     @check_packages(["gneiss"], import_into_backend=False)
-    def _ilr_with_tree(X, tree, polytomy_kws):
+    def _ilr_with_tree(X, tree):
         # Import ilr_transform from gneiss
         from gneiss.composition import ilr_transform
 
         # Check tree type
-        tree_type = _which_tree_type(tree)
+        tree_type = _infer_tree_type(tree)
 
         # Check leaves 
         components = set(X.columns)
         leaves_in_tree =  _get_leaves(tree=tree, tree_type=tree_type)
-        assert leaves_in_tree <= components, "Not all components (X.columns) are represented in tree"
+        assert components <= leaves_in_tree, "Not all components (X.columns) are represented in tree"
 
         # Prune tree
         if components < leaves_in_tree:
-            tree = tree.copy(method="deepcopy")
+            tree = tree.copy()
             n_leaves_before_pruning = len(leaves_in_tree)
-            tree.prune(leaf_set_from_X)
+            tree = _prune_tree(tree=tree, tree_type=tree_type, leaves=components)
             n_leaves_after_pruning = len(_get_leaves(tree=tree, tree_type=tree_type))
-            n_pruned = n_leaves - n_leaves_after_pruning
+            n_pruned = n_leaves_before_pruning - n_leaves_after_pruning
             if verbose:
                 print("Pruned {} attributes to match components (X.columns)".format(n_pruned), file=sys.stderr)
 
+        # Polytomy
+        if check_polytomy:
+            _check_polytomy(tree=tree, tree_type=tree_type)
+
         # ETE
         if tree_type == "ete":
-            tree = _ete_to_skbio_resolve_polytomy(tree=tree, polytomy_kws=polytomy_kws)
+            tree = _ete_to_skbio(tree=tree)
         return ilr_transform(table=X, tree=tree)
         
     # ILR without tree
@@ -496,5 +597,5 @@ def transform_ilr(X:pd.DataFrame, tree=None,  polytomy_kws=dict(), verbose=True)
         return _ilr_without_tree(X=X)
     # With tree
     else:
-        return _ilr_with_tree(X=X, tree=tree, polytomy_kws=polytomy_kws)
+        return _ilr_with_tree(X=X, tree=tree)
 

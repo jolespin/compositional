@@ -3,6 +3,7 @@ README.md
 setup.py
 compositional/__init__.py
 compositional/compositional.py
+compositional.egg-info/Icon
 compositional.egg-info/PKG-INFO
 compositional.egg-info/SOURCES.txt
 compositional.egg-info/dependency_links.txt

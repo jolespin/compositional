@@ -277,7 +277,7 @@ def transform_clr(X, return_zeros_as_neginfinity=False, zeros_ok=True):
     return transform_xlr(X, reference_components=None, centroid="mean", return_zeros_as_neginfinity=return_zeros_as_neginfinity, zeros_ok=zeros_ok)
 
 # Interquartile range log-ratio transform
-def transform_iqlr(X, percentile_range=(25,75), centroid="mean", interval_type="open", return_zeros_as_neginfinity=False, zeros_ok=True, ddof=0):
+def transform_iqlr(X, percentile_range=(25,75), centroid="mean", interval_type="open", return_zeros_as_neginfinity=False, zeros_ok=True, ddof=1):
     """
     Wrapper around `transform_xlr`
 
@@ -358,7 +358,7 @@ def pairwise_vlr(X):
         raise Exception("N={} zeros detected in `X`.  Either preprocess or add pseudocounts.".format(n_zeros))    
 
     X_log = np.log(X)
-    covariance = nancorr(X_log, cov=True) # covariance = np.cov(X_log.T, ddof=ddof)
+    covariance = nancorr(X_log, cov=True) # covariance = np.cov(X_log.T, ddof=1)
     diagonal = np.diagonal(covariance)
     vlr = -2*covariance + diagonal[:,np.newaxis] + diagonal
     if components is not None:
@@ -417,7 +417,7 @@ def pairwise_rho(X=None, reference_components=None, centroid="mean", interval_ty
             
     # rho (Erb et al. 2016)
     n, m = xlr.shape
-    variances = np.var(xlr, axis=0) # variances = np.var(X_xlr, axis=0, ddof=ddof)
+    variances = np.var(xlr, axis=0, ddof=1) # variances = np.var(X_xlr, axis=0, ddof=ddof)
     rhos = 1 - (vlr/np.add.outer(variances,variances))    
     if components is not None:
         rhos = pd.DataFrame(rhos, index=components, columns=components)
@@ -475,7 +475,7 @@ def pairwise_phi(X=None, symmetrize=True, triangle="lower", reference_components
             
     # phi (Lovell et al. 2015)
     n, m = xlr.shape
-    variances = np.var(xlr, axis=0)#[:,np.newaxis]
+    variances = np.var(xlr, axis=0, ddof=1)#[:,np.newaxis]
     phis = vlr/variances   
     if symmetrize:
         assert triangle in {"lower","upper"}, "`triangle` must be one of the following: {'lower','upper'}"
@@ -503,7 +503,7 @@ def transform_ilr(X:pd.DataFrame, tree=None,  check_polytomy=True,  verbose=True
     assert not np.any(X == 0), "`X` cannot contain zeros because of log-transforms.  Preprocess or use a pseudocount e.g. (X+1) or (X/(1/X.shape[1]**2))"
 
     # Determine tree module
-    def _which_tree_type(tree):
+    def _infer_tree_type(tree):
         tree_type = None
         query_type = str(tree.__class__).split("'")[1].split(".")[0]
         if query_type in {"skbio"}:
@@ -562,7 +562,7 @@ def transform_ilr(X:pd.DataFrame, tree=None,  check_polytomy=True,  verbose=True
         from gneiss.composition import ilr_transform
 
         # Check tree type
-        tree_type = _which_tree_type(tree)
+        tree_type = _infer_tree_type(tree)
 
         # Check leaves 
         components = set(X.columns)
