@@ -77,6 +77,9 @@ pip install git+https://github.com/jolespin/compositional
 #### Citations (Debut):
    
    * Espinoza JL., Shah N, Singh S, Nelson KE., Dupont CL. Applications of weighted association networks applied to compositional data in biology. https://doi.org/10.1111/1462-2920.15091
+
+
+  
 _________________________
 ### Usage:
 
@@ -161,3 +164,6 @@ X_ilr_with_tree = coda.transform_ilr(X, tree)
 
 #### Notes:
 * Versions prior to v2020.12.16 used `ddof=0` for all variance except during the `vlr` calculation.  This was because `pandas._libs.algos.nancorr` uses `ddof=1` and not `ddof=0`.  This caused specific `rho` values not to be bound by [-1,1].  To retain the performance of `nancorr`, I've set all `ddof=1` to match `nancorr`. 
+
+#### Acknowledgements:
+  * Thank you to [Thomas Quinn](https://scholar.google.com/citations?user=h4nh0VoAAAAJ&hl=en&oi=sra) and your [insightful explanations](https://github.com/tpq/propr/issues/11) of compositional data analysis
