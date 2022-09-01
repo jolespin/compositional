@@ -3,7 +3,7 @@ from __future__ import print_function, division
 
 # Built-ins
 import sys,warnings,functools
-from collections import Mapping
+from collections.abc import Mapping 
 from importlib import import_module
 
 # Version specific
