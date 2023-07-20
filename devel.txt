@@ -1,5 +1,0 @@
-[2022.08.31] - Added support for Python v3.10
-* Simplex plots (Optional: matplotlib)
-* Show influence of component length (e.g. gene size)?
-* Instead of xlr and vlr arguments.  Provide a X_log argument.  
-* Make functions robust to nans

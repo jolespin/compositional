@@ -2,8 +2,8 @@
 from __future__ import print_function, division
 
 # Built-ins
-import sys,warnings,functools
-from collections import Mapping
+import sys,warnings,functools, operator
+from collections.abc import Mapping 
 from importlib import import_module
 
 # Version specific
@@ -20,6 +20,28 @@ from pandas._libs.algos import nancorr
 # =========
 # Utilities
 # =========
+def assert_acceptable_arguments(query, target, operation="le", message="Invalid option provided.  Please refer to the following for acceptable arguments:"):
+    """
+    le: operator.le(a, b) : <=
+    eq: operator.eq(a, b) : ==
+    ge: operator.ge(a, b) : >=
+    """
+    def is_nonstring_iterable(obj):
+        condition_1 = hasattr(obj, "__iter__")
+        condition_2 =  not type(obj) == str
+        return all([condition_1,condition_2])
+    
+    # If query is not a nonstring iterable or a tuple
+    if any([
+            not is_nonstring_iterable(query),
+            isinstance(query,tuple),
+            ]):
+        query = [query]
+    query = set(query)
+    target = set(target)
+    func_operation = getattr(operator, operation)
+    assert func_operation(query,target), "{}\n{}".format(message, target)
+
 # Check packages
 def check_packages(packages, namespace=None, import_into_backend=True, verbose=False):
     """
@@ -73,9 +95,158 @@ def check_packages(packages, namespace=None, import_into_backend=True, verbose=F
         return wrapper
     return decorator
 
+def check_compositional(X, n_dimensions:int=None, acceptable_dimensions:set={1,2}):
+    """
+    # Description
+    Check that 1D and 2D NumPy/Pandas objects are the correct shape and >= 0
+
+    # Parameters
+        * X:
+            - Compositional data
+            (1D): pd.Series or 1D np.array
+            (2D): pd.DataFrame or 2D np.array
+        * n_dimensions: int   
+    """
+    if n_dimensions is None:
+        n_dimensions = len(X.shape)
+    if not hasattr(acceptable_dimensions, "__iter__"):
+        acceptable_dimensions = {acceptable_dimensions}
+    assert n_dimensions in acceptable_dimensions, "`X` must be {}".format(" or ".join(map(lambda d: f"{d}D", acceptable_dimensions)))
+    assert np.all(X >= 0), "`X` cannot contain negative values."
+
+# ===========================
+# Summary metrics
+# ===========================
+def sparsity(X, checks=True):
+    """
+    # Description
+    Calculates the sparsity (i.e., ratio of zeros) in a NumPy or Pandas object
+
+    # Parameters
+        * X:
+            - Compositional data
+            (1D): pd.Series or 1D np.array
+            (2D): pd.DataFrame or 2D np.array
+        * checks:
+            Check whether or not dimmensions are correct and data is >= 0
+    * Output
+        Ratio zeros
+    """
+    n_dimensions = len(X.shape)
+    if checks:
+        check_compositional(X, n_dimensions)
+
+    if n_dimensions == 2:
+        if isinstance(X, pd.DataFrame):
+            X = X.values
+        X = X.ravel()
+    number_of_zeros = np.sum(X == 0)
+    number_of_values = X.size
+    return number_of_zeros/number_of_values
+
+def number_of_components(X, checks=True):
+    """
+    # Description
+    Calculates the number of detected components (i.e., richness) in a NumPy or Pandas object
+
+    # Parameters
+        * X:
+            - Compositional data
+            (1D): pd.Series or 1D np.array of a composition (i.e., sample)
+            (2D): pd.DataFrame or 2D np.array (rows=samples/compositions, columns=features/components)
+        * checks:
+            Check whether or not dimmensions are correct and data is >= 0
+    * Output
+        Number of components per composition (i.e., sample)
+    """
+    n_dimensions = len(X.shape)
+    
+    if checks:
+        check_compositional(X, n_dimensions)
+    
+    if n_dimensions == 2:
+        return (X > 0).sum(axis=1)
+        
+    else:
+        return (X > 0).sum()
+
+def prevalence_of_components(X, checks=True):
+    """
+    # Description
+    Calculates the prevalence of detected components in a NumPy or Pandas object
+
+    # Parameters
+        * X:
+            - Compositional data
+            (1D): pd.Series or 1D np.array of a component vector
+            (2D): pd.DataFrame or 2D np.array (rows=samples/compositions, columns=features/components)
+        * checks:
+            Check whether or not dimmensions are correct and data is >= 0
+    * Output
+        Number of compositions where a component was detected
+    """
+    
+    n_dimensions = len(X.shape)
+    
+    if checks:
+        check_compositional(X, n_dimensions)
+    
+    if n_dimensions == 2:
+        return (X > 0).sum(axis=0)
+        
+    else:
+        return (X > 0).sum()
 # ===========================
 # Compositional data analysis
 # ===========================
+def transform_closure(X, checks=True):
+    """
+    # Description
+    Closure (e.g., total sum scaling, relative abundance) that can handle 1D and 2D NumPy  and Pandas objects
+
+    # Parameters
+        * X:
+            - Compositional data
+            (1D): pd.Series or 1D np.array
+            (2D): pd.DataFrame or 2D np.array
+        * checks:
+            Check whether or not dimmensions are correct and data is >= 0
+    * Output
+        Closure transformed matching input object class
+    """
+    
+    n_dimensions = len(X.shape)
+
+    if checks:
+        check_compositional(X, n_dimensions)
+    
+    if n_dimensions == 2:
+        
+        index = None
+        components = None
+        
+        if isinstance(X, pd.DataFrame):
+            index = X.index
+            components = X.columns
+            X = X.values
+            
+        X_closure = X/X.sum(axis=1).reshape(-1,1)
+        
+        if index is not None:
+            X_closure = pd.DataFrame(X_closure, index=index, columns=components)
+        
+    else:
+        components = None
+        if isinstance(X, pd.Series):
+            components = X.index
+            X = X.values
+            
+        X_closure = X/X.sum()
+        if components is not None:
+            X_closure = pd.Series(X_closure, index=components)
+
+    return X_closure
+
 # Extension of CLR to use custom centroids, references, and zeros without pseudocounts
 def transform_xlr(X, reference_components=None, centroid="mean", return_zeros_as_neginfinity=False, zeros_ok=True):
     """
@@ -106,8 +277,8 @@ def transform_xlr(X, reference_components=None, centroid="mean", return_zeros_as
             False: Error
     """
     n_dimensions = len(X.shape)
-    assert n_dimensions in {1,2}, "`X` must be 1D or 2D"
-    assert np.all(X >= 0), "`X` cannot contain negative values because of log-transformation step."
+    check_compositional(X, n_dimensions)
+
     assert not isinstance(reference_components, tuple), "`reference_components` cannot be type tuple"
     # 1-Dimensional
     if n_dimensions == 1:
@@ -277,7 +448,7 @@ def transform_clr(X, return_zeros_as_neginfinity=False, zeros_ok=True):
     return transform_xlr(X, reference_components=None, centroid="mean", return_zeros_as_neginfinity=return_zeros_as_neginfinity, zeros_ok=zeros_ok)
 
 # Interquartile range log-ratio transform
-def transform_iqlr(X, percentile_range=(25,75), centroid="mean", interval_type="open", return_zeros_as_neginfinity=False, zeros_ok=True, ddof=0):
+def transform_iqlr(X, percentile_range=(25,75), centroid="mean", interval_type="open", return_zeros_as_neginfinity=False, zeros_ok=True, ddof=1):
     """
     Wrapper around `transform_xlr`
 
@@ -295,8 +466,7 @@ def transform_iqlr(X, percentile_range=(25,75), centroid="mean", interval_type="
     """
     # Checks
     n_dimensions = len(X.shape)
-    assert n_dimensions in {2}, "`X` must be 2D"
-    assert np.all(X >= 0), "`X` cannot contain negative values because of log-transformation step."
+    check_compositional(X, n_dimensions)
     assert interval_type in {"closed", "open"}, "`interval_type` must be in the following: {closed, open}"
     percentile_range = tuple(sorted(percentile_range))
     assert len(percentile_range) == 2, "percentile_range must have 2 elements"
@@ -342,8 +512,7 @@ def pairwise_vlr(X):
     """
     # Checks
     n_dimensions = len(X.shape)
-    assert n_dimensions in {2}, "`X` must be 2D"
-    assert np.all(X >= 0), "`X` cannot contain negative values because of log-transformation step."
+    check_compositional(X, n_dimensions, acceptable_dimensions={2})
 
     components = None
     if isinstance(X, pd.DataFrame):
@@ -358,7 +527,7 @@ def pairwise_vlr(X):
         raise Exception("N={} zeros detected in `X`.  Either preprocess or add pseudocounts.".format(n_zeros))    
 
     X_log = np.log(X)
-    covariance = nancorr(X_log, cov=True) # covariance = np.cov(X_log.T, ddof=ddof)
+    covariance = nancorr(X_log, cov=True) # covariance = np.cov(X_log.T, ddof=1)
     diagonal = np.diagonal(covariance)
     vlr = -2*covariance + diagonal[:,np.newaxis] + diagonal
     if components is not None:
@@ -417,7 +586,7 @@ def pairwise_rho(X=None, reference_components=None, centroid="mean", interval_ty
             
     # rho (Erb et al. 2016)
     n, m = xlr.shape
-    variances = np.var(xlr, axis=0) # variances = np.var(X_xlr, axis=0, ddof=ddof)
+    variances = np.var(xlr, axis=0, ddof=1) # variances = np.var(X_xlr, axis=0, ddof=ddof)
     rhos = 1 - (vlr/np.add.outer(variances,variances))    
     if components is not None:
         rhos = pd.DataFrame(rhos, index=components, columns=components)
@@ -475,7 +644,7 @@ def pairwise_phi(X=None, symmetrize=True, triangle="lower", reference_components
             
     # phi (Lovell et al. 2015)
     n, m = xlr.shape
-    variances = np.var(xlr, axis=0)#[:,np.newaxis]
+    variances = np.var(xlr, axis=0, ddof=1)#[:,np.newaxis]
     phis = vlr/variances   
     if symmetrize:
         assert triangle in {"lower","upper"}, "`triangle` must be one of the following: {'lower','upper'}"
@@ -598,4 +767,140 @@ def transform_ilr(X:pd.DataFrame, tree=None,  check_polytomy=True,  verbose=True
     # With tree
     else:
         return _ilr_with_tree(X=X, tree=tree)
+    
+# =========    
+# Filtering
+# =========
+def _filter_data(
+    X:pd.DataFrame,
+    total_counts,
+    prevalence,
+    components,
+    mode,
+    order_of_operations:list=["total_counts", "prevalence", "components"],
+    interval_type="closed",
+    ):
+
+    check_compositional(X, acceptable_dimensions=2)
+    assert_acceptable_arguments(query=order_of_operations,target=["total_counts", "prevalence", "components"], operation="le")
+    assert_acceptable_arguments(query=[mode],target=["highpass", "lowpass"], operation="le")
+    assert_acceptable_arguments(query=[interval_type],target=["closed", "open"], operation="le")
+
+
+    def _get_elements(data,tol,operation):
+        return data[lambda x: operation(x,tol)].index
+
+    def _filter_total_counts(X, tol, operation):
+        data = X.sum(axis=1)
+        return X.loc[_get_elements(data, tol, operation),:]
+
+    def _filter_prevalence(X, tol, operation):
+        conditions = [
+            isinstance(tol, float),
+            0.0 < tol <= 1.0,
+        ]
+
+        if all(conditions):
+            tol = round(X.shape[0]*tol)
+        data = (X > 0).sum(axis=0)
+        assert tol <= X.shape[0], "If prevalence is an integer ({}), it cannot be larger than the number of samples ({}) in the index".format(tol, X.shape[0])
+        return X.loc[:,_get_elements(data, tol, operation)]
+
+    def _filter_components(X, tol, operation):
+        data = (X > 0).sum(axis=1)
+        return X.loc[_get_elements(data, tol, operation),:]
+
+    if interval_type == "closed":
+        operations = {"highpass":operator.ge, "lowpass":operator.le}
+    if interval_type == "open":
+        operations = {"highpass":operator.gt, "lowpass":operator.lt}
+
+    # Defaults
+    if mode == "highpass":
+        if components is None:
+            components = 0
+        if total_counts is None:
+            total_counts = 0
+        if prevalence is None:
+            prevalence = 0
+    if mode == "lowpass":
+        if components in {None, np.inf}:
+            components = X.shape[1]
+        if total_counts in {None, np.inf}:
+            total_counts = np.inf
+        if prevalence in {None, np.inf}:
+            prevalence = X.shape[0]
+            
+    functions = dict(zip(["total_counts", "prevalence", "components"], [_filter_total_counts, _filter_prevalence, _filter_components]))
+    thresholds = dict(zip(["total_counts", "prevalence", "components"], [total_counts, prevalence, components]))
+
+    for strategy in order_of_operations:
+        tol = thresholds[strategy]
+        if tol is not None:
+            X = functions[strategy](X=X,tol=tol, operation=operations[mode])
+
+    return X
+        
+def filter_data_highpass(
+    X:pd.DataFrame,
+    minimum_total_counts=1,
+    minimum_prevalence=1,
+    minimum_components=1,
+    order_of_operations:list=["minimum_total_counts", "minimum_prevalence", "minimum_components"],
+    interval_type="closed",
+    ):
+
+    """
+    # Description
+    Highpass filter compositional table to include data higher than a minimum
+    
+    # Parameters
+        * X: pd.DataFrame or 2D np.array of compositional data (rows=compositions/samples, columns=components/features)
+        * minimum_total_counts:  The minimum total counts in a composition (sum per row) (axis=0)
+        * minimum_prevalence: The minimum number of compositions that must contain the components (axis=1)
+        * minimum_components: The minimum number of detected components (axis=0)
+        * order_of_operations: Order of filtering scheme.  Choose between: ["minimum_total_counts", "minimum_prevalence", "minimum_components"]
+
+    Adapted from the following source:
+    * https://github.com/jolespin/soothsayer
+ 
+    """
+    assert_acceptable_arguments(query=order_of_operations,target=["minimum_total_counts", "minimum_prevalence", "minimum_components"], operation="le")
+        
+    order_of_operations = list(map(lambda x: "_".join(x.split("_")[1:]), order_of_operations))
+
+    return _filter_data(
+        X=X,
+        total_counts=minimum_total_counts,
+        prevalence=minimum_prevalence,
+        components=minimum_components,
+        mode="highpass",
+        order_of_operations=order_of_operations,
+        interval_type=interval_type,
+        )
+
+# def filter_data_lowpass(
+#     X:pd.DataFrame,
+#     maximum_total_counts=np.inf,
+#     maximum_prevalence=np.inf,
+#     maximum_components=np.inf,
+#     order_of_operations:list=["maximum_total_counts", "maximum_prevalence", "maximum_components"],
+#     interval_type="closed",
+#     ):
+
+#     """
+#     # Description
+#     Lowpass filter compositional table to include data lower than a maximum
+    
+#     # Parameters
+#         * X: pd.DataFrame or 2D np.array of compositional data (rows=compositions/samples, columns=components/features)
+#         * maximum_total_counts:  The maximum total counts in a composition (sum per row) (axis=0)
+#         * maximum_prevalence: The maximum number of compositions that must contain the components (axis=1)
+#         * maximum_components: The maximum number of detected components (axis=0)
+#         * order_of_operations: Order of filtering scheme.  Choose between: ["maximum_total_counts", "maximum_prevalence", "maximum_components"]
+
+#     Adapted from the following source:
+#     * https://github.com/jolespin/soothsayer
+ 
+#     """
 

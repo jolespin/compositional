@@ -22,9 +22,10 @@ ete[2/3]
 
 #### Install:
 ```
-# "Stable" release (still developmental)
+# Stable release (Preferred)
 pip install compositional
-# Current release
+
+# Developmental release
 pip install git+https://github.com/jolespin/compositional
 ```
 
@@ -89,7 +90,7 @@ import compositional as coda
 import pandas as pd
 
 # Load abundances (Gomez and Espinoza et al. 2017)
-X = pd.read_csv("https://github.com/jolespin/supragingival_plaque_microbiome/blob/master/16S_amplicons/Data/X.tsv.gz?raw=true", 
+X = pd.read_csv("https://github.com/jolespin/projects/raw/main/supragingival_plaque_microbiome/16S_amplicons/Data/X.tsv.gz", 
                 sep="\t",
                 index_col=0,
                 compression="gzip",
@@ -99,6 +100,21 @@ delta = 1/X.shape[1]**2 # http://scikit-bio.org/docs/latest/generated/skbio.stat
 X = X + delta
 # print("X.shape: (n={} samples, m={} OTUs)| delta={}".format(*X.shape, delta))
 # X.shape: (n=473 samples, m=481 OTUs) | delta=4.322249644494967e-06
+```
+
+#### (Highpass) Filtering of compositional data
+Here we are going to first remove all samples with less than 10,000 total counts, then all features that aren't in at least 50% of the samples, and then samples that don't have at least 50 detected components.
+
+```
+X_filtered = coda.filter_data_highpass(
+    X=X, 
+    minimum_total_counts=10000,
+    minimum_prevalence=0.5,
+    minimum_components=50,
+)
+
+X.shape, X_filtered.shape
+# ((473, 481), (401, 93))
 ```
 
 #### Pairwise operations
