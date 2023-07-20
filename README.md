@@ -117,6 +117,31 @@ X.shape, X_filtered.shape
 # ((473, 481), (401, 93))
 ```
 
+#### Summary metrics
+
+```
+# Sparsity
+s = coda.sparsity(X)
+print("Ratio of zeros in dataset: {:.3f}".format(s))
+# Ratio of zeros in dataset: 0.776
+
+# Total number of components per composition (i.e., richness)
+coda.number_of_components(X).head()
+# S-1409-45.B_RD1     111
+# 1104.2_RD1           84
+# S-1409-42.B_RD1     142
+# 1073.1_RD1          101
+# A-1504-100.B_RD1     95
+
+# Prevalence of components across compositions
+coda.prevalence_of_components(X).head()
+# Otu000514    470
+# Otu000001    473
+# Otu000038    472
+# Otu000003    473
+# Otu000326    432
+```
+
 #### Pairwise operations
 ```
 # Pairwise variance log-ratio
