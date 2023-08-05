@@ -1,24 +1,28 @@
 ### compositional
 Compositional data analysis in Python.
 
-This package is meant to extend the methods of [scikit-bio](http://scikit-bio.org/docs/latest/generated/skbio.stats.composition.html#module-skbio.stats.composition) and serve as a pythonic alternative (not replacement) to *some* functionalities within [propr](https://github.com/tpq/propr).  Please use `scikit-bio` for standard compositional data analysis or `propr` for robust statistical testing.  
+This package is meant to extend the methods of [scikit-bio](http://scikit-bio.org/docs/latest/generated/skbio.stats.composition.html#module-skbio.stats.composition) and serve as a pythonic alternative (not replacement) to *some* functionalities within [propr](https://github.com/tpq/propr).  
+
+Please use `scikit-bio` for standard compositional data analysis or `propr` for robust statistical testing.  
 
 #### Dependencies:
-Compatible for Python 2 and 3.
+Compatible for Python 3.
 
-```
-# Required:
-pandas
-numpy
 
-# Optional:
-scikit-bio
-gneiss
-ete[2/3]
-```	
-	
+**Required:**
 
-		
+* pandas
+* numpy
+* scipy
+
+**Optional:**
+
+* scikit-bio
+* gneiss
+* ete[2/3]
+* matplotlib
+* seaborn
+
 
 #### Install:
 ```
@@ -80,11 +84,20 @@ pip install git+https://github.com/jolespin/compositional
    * Espinoza JL., Shah N, Singh S, Nelson KE., Dupont CL. Applications of weighted association networks applied to compositional data in biology. https://doi.org/10.1111/1462-2920.15091
 
 
-  
 _________________________
 ### Usage:
 
+Each function operates on either 2D `pd.DataFrame` or `np.array` objects and output either `pandas` or `numpy` objects, respectively.  
+
+Transformation functions (e.g., `transform_clr`) output the equivalent object with the same shape.
+
+Pairwise functions either output a redundant form or non-redundant form.  If a `numpy` object is input, then either a 2D redundant form or 1D non-redundant form `np.array` object will be output.  If a `pd.DataFrame` is input then there are 2 types of output that can be returned.  If `redundant_form=True`, then a square `pd.DataFrame` will be returned.  If `redundant_form=False`, then a `pd.Series` will be returned and the index will contain `frozenset` objects that have the combinations. 
+
+For the operations in logspace, a pseudocount of 1 is added to avoid -inf values for log(0). 
+
 #### Loading package and obtaining data
+For usage, we are going to load data from oral microbiome 16S amplicon data from [Gomez and Espinoza et al. 2017](https://pubmed.ncbi.nlm.nih.gov/28910633/).
+
 ```python
 import compositional as coda
 import pandas as pd
@@ -95,15 +108,26 @@ X = pd.read_csv("https://github.com/jolespin/projects/raw/main/supragingival_pla
                 index_col=0,
                 compression="gzip",
 )
-# Add pseudocount
-delta = 1/X.shape[1]**2 # http://scikit-bio.org/docs/latest/generated/skbio.stats.composition.multiplicative_replacement.html
-X = X + delta
-# print("X.shape: (n={} samples, m={} OTUs)| delta={}".format(*X.shape, delta))
-# X.shape: (n=473 samples, m=481 OTUs) | delta=4.322249644494967e-06
+
+# Load metadata
+Y = pd.read_csv("https://github.com/jolespin/projects/raw/main/supragingival_plaque_microbiome/16S_amplicons/Data/Y.tsv.gz", 
+                sep="\t",
+                index_col=0,
+                compression="gzip",
+).loc[X.index]
+
+
+# print("X.shape: (n={} samples, m={} OTUs)")
+# X.shape: (n=473 samples, m=481 OTUs)
+
+# Classes
+classes = pd.Series(((Y["Caries_enamel"] == "YES").astype(int) + (Y["Caries_dentine"] == "YES").astype(int)).map(lambda x: {True:"Caries", False:"Caries-free"}[x > 0]), name="Diagnosis")
+
+class_colors = {"Caries-free":"black", "Caries":"red"}
 ```
 
 #### (Highpass) Filtering of compositional data
-Here we are going to first remove all samples with less than 10,000 total counts, then all features that aren't in at least 50% of the samples, and then samples that don't have at least 50 detected components.
+Filtering functions to preprocess data.  Example use case: (1) Remove all samples with less than 10,000 total counts; (2) then all features that aren't in at least 50% of the samples, and then (3) samples that don't have at least 50 detected components.
 
 ```
 X_filtered = coda.filter_data_highpass(
@@ -118,6 +142,7 @@ X.shape, X_filtered.shape
 ```
 
 #### Summary metrics
+Summary metrics for compositional data. 
 
 ```
 # Sparsity
@@ -143,45 +168,90 @@ coda.prevalence_of_components(X).head()
 ```
 
 #### Pairwise operations
+
+All pairwise operations support either a redundant form or non-redundant form using the `redundant_form` argument. 
+
+##### Pairwise sample operations:
+
+```
+# Pairwise Aitchison distance (redundant form)
+aitchison_distances = coda.pairwise_aitchison_distance(X + 1, redundant_form=True)
+# print(aitchison_distances.iloc[:4,:4])
+#                  S-1409-45.B_RD1  1104.2_RD1  S-1409-42.B_RD1  1073.1_RD1
+# S-1409-45.B_RD1         0.000000   25.384218        21.573635   23.455055
+# 1104.2_RD1             25.384218    0.000000        27.811292   21.942080
+# S-1409-42.B_RD1        21.573635   27.811292         0.000000   26.734435
+# 1073.1_RD1             23.455055   21.942080        26.734435    0.000000
+
+# Pairwise Aitchison distance (non-redundant form)
+aitchison_distances = coda.pairwise_aitchison_distance(X + 1, redundant_form=False)
+# print(aitchison_distances)
+# aitchison_distance
+# (S-1409-45.B_RD1, 1104.2_RD1)          25.384218
+# (S-1409-45.B_RD1, S-1409-42.B_RD1)     21.573635
+# (S-1409-45.B_RD1, 1073.1_RD1)          23.455055
+# (S-1409-45.B_RD1, A-1504-100.B_RD1)    21.330042
+# (S-1409-45.B_RD1, 2053.2_RD1)          22.531754
+#                                          ...    
+# (S-1410-40.B_RD1, M-1507-132.A_RD1)    23.247654
+# (M-1507-132.A_RD1, C-1504-92.B_RD1)    20.422768
+# (S-1410-40.B_RD1, 2005.1_RD1)          22.294198
+# (2005.1_RD1, C-1504-92.B_RD1)          21.323598
+# (S-1410-40.B_RD1, C-1504-92.B_RD1)     21.073093
+# Length: 111628, dtype: float64
+```
+
+##### Pairwise component operations:
+
 ```
 # Pairwise variance log-ratio
-vlr = coda.pairwise_vlr(X)
+vlr = coda.pairwise_vlr(X + 1)
 # print(vlr.iloc[:4,:4])
 #            Otu000514  Otu000001  Otu000038  Otu000003
-# Otu000514   0.000000   2.158950   3.763323   3.453961
-# Otu000001   2.158950   0.000000   1.821676   1.233443
-# Otu000038   3.763323   1.821676   0.000000   2.870469
-# Otu000003   3.453961   1.233443   2.870469   0.000000
+# Otu000514   0.000000   0.764679   1.844322   1.869921
+# Otu000001   0.764679   0.000000   1.299599   1.230553
+# Otu000038   1.844322   1.299599   0.000000   2.207001
+# Otu000003   1.869921   1.230553   2.207001   0.000000
 
 # Pairwise rho from Erb et al. 2016
-rhos = coda.pairwise_rho(X)
+rhos = coda.pairwise_rho(X + 1)
 # print(rhos.iloc[:4,:4])
-# 				Otu000514  Otu000001  Otu000038  Otu000003
-# Otu000514   1.000000   0.470328   0.170234   0.209101
-# Otu000001   0.470328   1.000000   0.268917   0.469140
-# Otu000038   0.170234   0.268917   1.000000  -0.031477
-# Otu000003   0.209101   0.469140  -0.031477   1.000000
+#            Otu000514  Otu000001  Otu000038  Otu000003
+# Otu000514   1.000000   0.708325   0.304007   0.298552
+# Otu000001   0.708325   1.000000   0.355895   0.394880
+# Otu000038   0.304007   0.355895   1.000000  -0.070423
+# Otu000003   0.298552   0.394880  -0.070423   1.000000
+
+# Pairwise phi from Erb et al. 2016
+phis = pairwise_phi(X + 1)
+# print(phis.iloc[:4,:4])
+#            Otu000514  Otu000001  Otu000038  Otu000003
+# Otu000514   0.000000   0.470005   1.133602   1.149336
+# Otu000001   0.470005   0.000000   1.306492   1.237079
+# Otu000038   1.133602   1.306492   0.000000   2.157470
+# Otu000003   1.149336   1.237079   2.157470   0.000000
 ```
 
 #### Isometric log-ratio transform *without* tree (requires scikit-bio)
 ```
 # Isometric log-ratio
-X_ilr_without_tree = coda.transform_ilr(X)
+X_ilr_without_tree = coda.transform_ilr(X + 1)
 # print(X_ilr_without_tree.iloc[:4,:4])
-# S-1409-45.B_RD1 -2.671007  -0.142743 -1.101510  17.067981
-# 1104.2_RD1      -2.122899  13.870926 -8.158016  -0.250970
-# S-1409-42.B_RD1 -1.914182  -0.025238 -0.019451  16.660011
-# 1073.1_RD1      -1.884611   2.345849 -2.729035   2.448122
+#                         0         1         2         3
+# S-1409-45.B_RD1 -2.663112 -0.139161 -1.098112  6.023297
+# 1104.2_RD1      -2.094331  3.804032 -4.579665  2.357939
+# S-1409-42.B_RD1 -1.909313 -0.023536 -0.018245  5.614873
+# 1073.1_RD1      -1.879929  2.322184 -2.717553  2.426881
 ```
 
-#### Isometric log-ratio transform *with* tree (requires scikit-bio, gneiss, and [Optional: ete[2/3])
+#### Isometric log-ratio transform *with* tree (requires scikit-bio, gneiss, and [Optional: ete3])
 ```
 import requests
 from io import StringIO
 from skbio import TreeNode
 
 # Get newick tree
-url = "https://github.com/jolespin/supragingival_plaque_microbiome/blob/master/16S_amplicons/Data/otus.alignment.fasttree.nw?raw=true"
+url = "https://github.com/jolespin/projects/raw/main/supragingival_plaque_microbiome/16S_amplicons/Data/otus.alignment.fasttree.nw"
 newick = requests.get(url).text
 tree = TreeNode.read(StringIO(newick), convert_underscores=False)
 tree.bifurcate()
@@ -194,14 +264,56 @@ for node in tree.traverse():
         intermediate_node_index += 1
 
 # Isometric log-ratio transform
-X_ilr_with_tree = coda.transform_ilr(X, tree)
+X_ilr_with_tree = coda.transform_ilr(X + 1, tree)
 # print(X_ilr_with_tree.iloc[:4,:4])
-#                        y1         y2          y480            y3
-# S-1409-45.B_RD1 -5.022283   7.999347 -1.526686e-16  3.387754e-15
-# 1104.2_RD1      -3.676812   5.856319 -1.415420e-17  2.272686e-15
-# S-1409-42.B_RD1 -6.413369  10.215028  9.148268e-17  3.511751e-15
-# 1073.1_RD1      -4.608491   7.340271  2.027126e-16  2.519377e-15
+#                        y1        y2          y480            y3
+# S-1409-45.B_RD1 -1.039407  1.655538 -2.464164e-17  6.189481e-16
+# 1104.2_RD1      -0.673964  1.073470  4.192522e-18  3.923163e-16
+# S-1409-42.B_RD1 -1.326432  2.112703  3.851113e-17  8.306736e-16
+# 1073.1_RD1      -0.979605  1.560287  5.023995e-18  5.907717e-16
 ```
+
+#### Plotting compositions (requires matplotlib and seaborn)
+
+Let's color the samples by a continuous variable (e.g., age in months).
+
+```
+sample_labels = pd.Index(X.sum(axis=1).sort_values().index[:4].tolist())
+
+fig, g, df = coda.plot_compositions(X, colors=Y.loc[X.index,"age (months)"],  sample_labels=sample_labels, title="Caries", figsize=(8,5))
+```
+![](images/kde2d_continuous.png)
+
+Now color the samples by each class (e.g., phenotype).
+
+```
+fig, g, df = coda.plot_compositions(X, classes=classes, class_colors=class_colors, log_scale=True, title="Caries", style="ggplot", vertical_lines=[1, 1000,5000])
+```
+
+![](images/kde2d_classes.png)
+
+
+#### Plotting prevalence (requires matplotlib)
+To identify a threshold to remove low prevalence components/features let's plot a prevalence curve where the x-axis shows the prevalence and y-axis shows the number of components are prevalent in x samples. 
+
+First, let's look at the prevalence globally. We want to see number of OTUs that are prevalent in at least 1 sample, 2 samples, half the samples, and all the samples. 
+
+There are 462 OTUs that in are in at least 1 sample, 392 OTUs that are in at least 2 samples (i.e., 462 - 392 = 70 singleton OTUs), and 11 OTUs that are in all the samples.
+
+```
+fig, ax, prevalence_distribution = coda.plot_prevalence(X, component_type="OTUs", show_prevalence=[1,2,0.5,1.0])
+
+```  
+
+![](images/prevalence_global.png)
+
+Now, let's look at the prevalence for each classes separately.
+
+```
+fig, ax, prevalence_distribution = coda.plot_prevalence(X, classes=classes,  class_colors=class_colors, component_type="OTUs", show_prevalence=[1,2,0.5,1.0])
+```
+
+![](images/prevalence_classes.png)
 
 #### Notes:
 * Versions prior to v2020.12.16 used `ddof=0` for all variance except during the `vlr` calculation.  This was because `pandas._libs.algos.nancorr` uses `ddof=1` and not `ddof=0`.  This caused specific `rho` values not to be bound by [-1,1].  To retain the performance of `nancorr`, I've set all `ddof=1` to match `nancorr`. 

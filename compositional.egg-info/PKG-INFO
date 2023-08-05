@@ -1,13 +1,9 @@
 Metadata-Version: 2.1
 Name: compositional
-Version: 2023.7.20
+Version: 2023.8.5
 Summary: Compositional data analysis in Python
 Home-page: https://github.com/jolespin/compositional
 Author: Josh L. Espinoza
 Author-email: jespinoz@jcvi.org
 License: BSD-3
-Platform: UNKNOWN
 License-File: LICENSE
-
-UNKNOWN
-
