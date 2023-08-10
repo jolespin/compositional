@@ -1095,6 +1095,9 @@ def plot_compositions(
     ymin=0, 
     vmin=None,
     vmax=None,
+
+    checks=True,
+
     **scatter_kws,
 
     ):
@@ -1133,8 +1136,9 @@ def plot_compositions(
         
     # Data
     X = X.fillna(0)
-    check_compositional(X, acceptable_dimensions={2})
-    assert np.all(X == X.astype(int)), "X must be integer data and should not be closure transformed"
+    if checks:
+        check_compositional(X, acceptable_dimensions={2})
+        assert np.all(X == X.astype(int)), "X must be integer data and should not be closure transformed"
         
     # Total number of counts
     sample_to_totalcounts = X.sum(axis=1)
@@ -1170,6 +1174,14 @@ def plot_compositions(
     for field in ["y"]:
         df_data[field] = df_data[field].astype(int)
 
+    # Default color
+    if all([
+        colors is None,
+        classes is None,
+        class_colors is None,
+        ]):
+        colors = color_kde_1d
+        
     # Colors from pd.Series
     if colors is not None:
         assert classes is None, "If `colors` are provided then `classes` and `class_colors` cannot be provided"
@@ -1254,8 +1266,8 @@ def plot_compositions(
             ]
             if all(conditions):
                 if "classes" in df_data.columns:
-                        g = sns.jointplot(data=df_data, kind="scatter", x="x", y="y", sizes="sizes", hue="classes", hue_order=class_colors.index.tolist(), palette=class_colors.values.tolist(), marker=markers, **_scatter_kws)
-                        g.plot_marginals(sns.rugplot, data=df_data, hue="classes", hue_order=class_colors.index.tolist(), palette=class_colors.values.tolist(), **_rug_kws)
+                    g = sns.jointplot(data=df_data, kind="scatter", x="x", y="y", sizes="sizes", hue="classes", hue_order=class_colors.index.tolist(), palette=class_colors.values.tolist(), marker=markers, **_scatter_kws)
+                    g.plot_marginals(sns.rugplot, data=df_data, hue="classes", hue_order=class_colors.index.tolist(), palette=class_colors.values.tolist(), **_rug_kws)
 
                 if "continuous_colors" in df_data.columns:
                     g = sns.jointplot(data=df_data, kind="kde", x="x", y="y",  color=color_kde_1d, alpha=0, **{k:v  for k,v in _kde_2d_kws.items() if k != "alpha"})
@@ -1265,7 +1277,7 @@ def plot_compositions(
                 if "custom_colors" in df_data.columns:
                     g = sns.jointplot(data=df_data, kind="kde", x="x", y="y",  color=color_kde_1d, alpha=0, **{k:v  for k,v in _kde_2d_kws.items() if k != "alpha"})
                     g.plot_joint(sns.scatterplot, data=df_data, c=df_data["custom_colors"], **_scatter_kws)
-                    g.plot_marginals(sns.rugplot, data=df_data, hue="custom_colors", **_rug_kws)
+                    g.plot_marginals(sns.rugplot, data=df_data, c=color_kde_1d, **_rug_kws)
                     
                 ax_scatter = g.ax_joint
                 
@@ -1318,7 +1330,7 @@ def plot_compositions(
                 if "custom_colors" in df_data.columns:
                     g = sns.jointplot(data=df_data, kind="kde", x="x", y="y",  color=color_kde_1d, **_kde_2d_kws)#, sizes=1e-3, alpha=0, **{k:v  for k,v in _scatter_kws.items() if k != "alpha"})
                     g.plot_joint(sns.scatterplot, data=df_data, c=df_data["custom_colors"], **_scatter_kws)
-                    g.plot_marginals(sns.rugplot, data=df_data, hue="custom_colors", **_rug_kws)
+                    g.plot_marginals(sns.rugplot, data=df_data, c=color_kde_1d, **_rug_kws)
 
 
                 ax_scatter = g.ax_joint
@@ -1441,6 +1453,7 @@ def plot_prevalence(
     fill=True,
 
     ax=None,
+    checks=True,
     ):
 
     import matplotlib.pyplot as plt
@@ -1497,7 +1510,8 @@ def plot_prevalence(
             fig = plt.gcf()
             
         # Dimensions
-        check_compositional(X, acceptable_dimensions={2})
+        if checks:
+            check_compositional(X, acceptable_dimensions={2})
         n,m = X.shape
         samples = X.index
 
@@ -1568,7 +1582,7 @@ def plot_prevalence(
                 ax.legend_.set_title(legend_title, prop=_legend_title_kws)
 
         # Set limits
-        ax.set_xlim((0,max(prevalence_values)))
+        ax.set_xlim((0,n))
         ax.set_ylim((1,m))
         
         prevalence_ticks = np.linspace(1,n,min(number_of_prevalence_ticks,n)).astype(int)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-__version__= "2023.8.5"
+__version__= "2023.8.9"
 __author__ = "Josh L. Espinoza"
 __email__ = "jespinoz@jcvi.org, jol.espinoz@gmail.com"
 __url__ = "https://github.com/jolespin/compositional"
