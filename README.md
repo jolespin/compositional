@@ -43,51 +43,49 @@ pip install git+https://github.com/jolespin/compositional
  
 #### Citations (Code):
 
-	* Jin, S., Notredame, C. and Erb, I., 2022. Compositional 
-	Covariance Shrinkage and Regularised Partial Correlations. 
-	arXiv preprint arXiv:2212.00496.
+* Jin, S., Notredame, C. and Erb, I., 2022. Compositional Covariance Shrinkage and Regularised Partial Correlations. arXiv preprint arXiv:2212.00496.
    
-   * Quinn T, Richardson MF, Lovell D, Crowley T (2017) propr: An
+* Quinn T, Richardson MF, Lovell D, Crowley T (2017) propr: An
    R-package for Identifying Proportionally Abundant Features Using
    Compositional Data Analysis. Scientific Reports 7(16252):
    doi:10.1038/s41598-017-16520-0
 
-   * Espinoza JL. compositional: Compositional data analysis in Python (2020). 
+* Espinoza JL. compositional: Compositional data analysis in Python (2020). 
    https://github.com/jolespin/compositional
    
 #### Citations (Theory):
 
-	* Jin, S., Notredame, C. and Erb, I., 2022. Compositional 
+* Jin, S., Notredame, C. and Erb, I., 2022. Compositional 
 	Covariance Shrinkage and Regularised Partial Correlations. 
 	arXiv preprint arXiv:2212.00496.
 	
-	* Erb, I., 2020. Partial correlations in compositional data analysis. 
+* Erb, I., 2020. Partial correlations in compositional data analysis. 
 	Applied Computing and Geosciences, 6, p.100026.
 	
-   * Quinn TP, Erb I, Gloor G, Notredame C, Richardson MF, Crowley TM
+* Quinn TP, Erb I, Gloor G, Notredame C, Richardson MF, Crowley TM
    (2019) A field guide for the compositional analysis of any-omics
    data. GigaScience 8(9). doi:10.1093/gigascience/giz107
  
-   * Quinn T, Erb I, Richardson MF, Crowley T (2018) Understanding
+* Quinn T, Erb I, Richardson MF, Crowley T (2018) Understanding
    sequencing data as compositions: an outlook and review.
    Bioinformatics 34(16): doi:10.1093/bioinformatics/bty175
  
-   * Erb I, Quinn T, Lovell D, Notredame C (2017) Differential
+* Erb I, Quinn T, Lovell D, Notredame C (2017) Differential
    Proportionality - A Normalization-Free Approach To Differential
    Gene Expression. Proceedings of CoDaWork 2017, The 7th
    Compositional Data Analysis Workshop; available under bioRxiv
    134536: doi:10.1101/134536
  
-   * Erb I, Notredame C (2016) How should we measure proportionality
+* Erb I, Notredame C (2016) How should we measure proportionality
    on relative gene expression data? Theory in Biosciences 135(1):
    doi:10.1007/s12064-015-0220-8
  
-   * Lovell D, Pawlowsky-Glahn V, Egozcue JJ, Marguerat S, Bahler J
+* Lovell D, Pawlowsky-Glahn V, Egozcue JJ, Marguerat S, Bahler J
    (2015) Proportionality: A Valid Alternative to Correlation for
    Relative Data. PLoS Computational Biology 11(3):
    doi:10.1371/journal.pcbi.1004075
    
-   * Morton, J.T., Sanders, J., Quinn, R.A., McDonald, D., Gonzalez, A., Vázquez‐Baeza, Y., et al . (2017) Balance trees reveal microbial niche differentiation. mSystems: e00162‐16. doi: 10.1128/mSystems.00162-16
+* Morton, J.T., Sanders, J., Quinn, R.A., McDonald, D., Gonzalez, A., Vázquez‐Baeza, Y., et al . (2017) Balance trees reveal microbial niche differentiation. mSystems: e00162‐16. doi: 10.1128/mSystems.00162-16
 
 
 #### Citations (Debut):
