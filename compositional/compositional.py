@@ -97,7 +97,7 @@ def check_packages(packages, namespace=None, import_into_backend=True, verbose=F
         return wrapper
     return decorator
 
-def check_compositional(X, n_dimensions:int=None, acceptable_dimensions:set={1,2}, is_integer=False, is_proportional=False):
+def check_compositional(X, n_dimensions:int=None, acceptable_dimensions:set={1,2}, is_integer=False, is_proportional=False, is_integer_or_proportional=False):
     """
     # Description
     Check that 1D and 2D NumPy/Pandas objects are the correct shape and >= 0
@@ -119,6 +119,11 @@ def check_compositional(X, n_dimensions:int=None, acceptable_dimensions:set={1,2
         assert np.all(X == X.astype(int)), "`X` must be integer counts"
     if is_proportional:
         assert np.allclose(X.sum(axis=1), np.ones(X.shape[0])), "`X` must be proportional and each composition must sum up to 1"
+    if is_integer_or_proportional:
+        assert any([
+            np.all(X == X.astype(int)),
+            np.allclose(X.sum(axis=1), np.ones(X.shape[0])),
+        ]), "`X` must be integer counts or proportional so each composition sums up to 1"
 
 # ===========================
 # Summary metrics
@@ -202,8 +207,49 @@ def prevalence_of_components(X, minimum_count=1, checks=True):
         
     else:
         return (X >= minimum_count).sum()
+    
+# ==========
+# Conversion
+# ==========
+def covariance_to_correlation(V):
+    """
+    Convert Covariance matrix to Correlation matrix efficiently.
+    
+    Arguments:
+    V: a covariance matrix (i.e. symmetric and positive definite)
+
+    Implementation help from @joão-areias:
+    https://stackoverflow.com/a/76978819/678572
+    """
+    p, d = V.shape
+    Is = np.sqrt(1 / np.diag(V))  # diag( 1/sigma_i )
+
+    r = V.copy()  # keep dimnames
+    r *= Is.reshape(-1, 1) * Is.reshape(1, -1)
+    np.fill_diagonal(r, 1)  # exact in diagonal
+    return r
+
+
+def correlation_to_partial_correlation(m, tol=1e-15):
+    """
+    Convert a correlation matrix to a partial correlation matrix efficiently.
+
+    Arguments:
+    m: a correlation matrix
+    tol: tolerance for calculating the pseudo-inverse
+
+    Implementation help from @joão-areias:
+    https://stackoverflow.com/a/76978819/678572
+    """
+    # Invert, then negate off-diagonal entries
+    m = -np.linalg.pinv(m, rcond=tol)
+    np.fill_diagonal(m, -np.diag(m))
+
+    # Standardize and return
+    return covariance_to_correlation(m)
+
 # ===========================
-# Compositional data analysis
+# Transforms
 # ===========================
 def transform_closure(X, checks=True):
     """
@@ -741,7 +787,97 @@ def pairwise_phi(X=None, redundant_form:bool=True, symmetrize=True, triangle="lo
             phis = pd.Series(phis, index=components)
     return phis
 
-def pairwise_aitchison_distance(X, redundant_form:bool=True):
+
+
+
+@check_packages(["sklearn"])
+def pairwise_partial_correlation_with_basis_shrinkage(X: pd.DataFrame, redundant_form=True, checks=True):
+    """
+    # Description
+    Computes pairwise partial correlation with basis shrinkage using the Ledoit-Wolf shrinkage method
+
+    Please cite the following references:
+        * Erb et al. 2020 (https://www.sciencedirect.com/science/article/pii/S2590197420300082)
+        * Jin et al. 2022 (https://arxiv.org/pdf/2212.00496.pdf)
+    
+    # Parameters
+        * X:
+            - Compositional data
+            (2D): pd.DataFrame or 2D np.array
+        * redundant_form:
+            - True: Return output in squareform
+            - False: Return the dereplicated distances
+        * checks:
+            - Check if data is non-negative and 2D
+
+    # Output: 
+        - Returns pairwise partial correlation with basis shrinkage
+            * X -> pd.DataFrame
+                - redundant_form: True
+                    pd.DataFrame with index and columns equal to X.index
+                - redundant_form: False
+                    pd.Series with index as a frozenset of combinations (i.e., list(map(frozenset, combinations(index, 2))))
+            * X -> np.array
+                - redundant_form: True
+                    2D np.array
+                - redundant_form: False
+                    1D np.array
+
+
+    # Notes:
+        As implemented in bShrink (https://github.com/tpq/propr/blob/12553b3bcd159649f25d9a0e480250c1eee1d965/R/1-propr.R#L326) 
+        I've started a GitHub issue to get this resolved: https://github.com/scikit-learn/scikit-learn/issues/27192
+        
+        However, R implementation uses an updated method not yet available in Scikit-learn (or Python AFAIK):
+            * Opgen-Rhein, R., and K. Strimmer. 2007. Accurate ranking of differentially expressed genes by a distribution-free shrinkage approach. 
+                Statist. Appl. Genet. Mol. Biol. 6:9. <DOI:10.2202/1544-6115.1252>
+            * Schafer, J., and K. Strimmer. 2005. A shrinkage approach to large-scale covariance estimation and implications for functional genomics. 
+                Statist. Appl. Genet. Mol. Biol. 4:32. <DOI:10.2202/1544-6115.1175>
+    """
+    from sklearn.covariance import ledoit_wolf
+
+    n_dimensions = len(X.shape)
+    if checks:
+        check_compositional(X, n_dimensions=n_dimensions, acceptable_dimensions={2})
+    
+    # Convert input data to a NumPy array
+    components = None
+    if isinstance(X, pd.DataFrame):
+        components = X.columns
+        X = X.values
+
+    # Get dimensions
+    D = X.shape[1]
+
+    # Transform counts to log proportions
+    P = X / X.sum(axis=1).reshape(-1, 1)
+    B = np.log(P)
+
+    # Covariance shrinkage
+    Cb, shrinkage = ledoit_wolf(B)
+    G = np.eye(D) - np.ones((D, D)) / D
+    cov = G @ Cb @ G # cov = np.dot(np.dot(G, Cb), G)
+
+    # Partial correlation
+    pcorr = correlation_to_partial_correlation(cov)
+    
+
+    # Format and add labels if Pandas
+    if redundant_form:
+        if components is not None:
+            pcorr = pd.DataFrame(pcorr, index=components, columns=components)
+    else:
+        pcorr = squareform(pcorr, checks=False)
+
+        if components is not None:
+            components = pd.Index(list(map(frozenset, combinations(components, 2))), name=components.name)
+            if components.name is None:
+                components.name = "pairwise_partial_correlation"
+            pcorr = pd.Series(pcorr, index=components)
+
+    return pcorr
+
+def pairwise_aitchison_distance(X, redundant_form:bool=True, checks=True):
     """
     # Description
     Computes pairwise Aitchison distance on a matrix (i.e., CLR transform -> Euclidean distance)
@@ -753,6 +889,8 @@ def pairwise_aitchison_distance(X, redundant_form:bool=True):
         * redundant_form:
             - True: Return output in squareform
             - False: Return the dereplicated distances
+        * checks:
+            - Check if data is non-negative and 2D
 
     # Output: 
         - Returns pairwise Aitchison distances
@@ -768,6 +906,9 @@ def pairwise_aitchison_distance(X, redundant_form:bool=True):
                     1D np.array
             
     """
+    n_dimensions = len(X.shape)
+    if checks:
+        check_compositional(X, n_dimensions=n_dimensions, acceptable_dimensions={2})
 
     # Convert input data to a NumPy array
     index=None

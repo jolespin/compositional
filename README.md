@@ -3,8 +3,6 @@ Compositional data analysis in Python.
 
 This package is meant to extend the methods of [scikit-bio](http://scikit-bio.org/docs/latest/generated/skbio.stats.composition.html#module-skbio.stats.composition) and serve as a pythonic alternative (not replacement) to *some* functionalities within [propr](https://github.com/tpq/propr).  
 
-Please use `scikit-bio` for standard compositional data analysis or `propr` for robust statistical testing.  
-
 #### Dependencies:
 Compatible for Python 3.
 
@@ -22,6 +20,7 @@ Compatible for Python 3.
 * ete[2/3]
 * matplotlib
 * seaborn
+* scitkit-learn
 
 
 #### Install:
@@ -33,9 +32,9 @@ pip install compositional
 pip install git+https://github.com/jolespin/compositional
 ```
 
-#### Proportionality methods adapted from the following source:
+#### Proportionality and partial correlation methods adapted from the following source:
 * [propr: An R package to calculate proportionality between vectors of compositional data
- (Thomm Quinn)](https://github.com/tpq/propr)
+ (Thomas Quinn)](https://github.com/tpq/propr)
  
 #### Isometric log-ratio methods use the following sources:
 * [scikit-bio: A package providing data structures, algorithms and educational resources for bioinformatics](https://github.com/biocore/scikit-bio)
@@ -43,6 +42,10 @@ pip install git+https://github.com/jolespin/compositional
 
  
 #### Citations (Code):
+
+	* Jin, S., Notredame, C. and Erb, I., 2022. Compositional 
+	Covariance Shrinkage and Regularised Partial Correlations. 
+	arXiv preprint arXiv:2212.00496.
    
    * Quinn T, Richardson MF, Lovell D, Crowley T (2017) propr: An
    R-package for Identifying Proportionally Abundant Features Using
@@ -53,6 +56,14 @@ pip install git+https://github.com/jolespin/compositional
    https://github.com/jolespin/compositional
    
 #### Citations (Theory):
+
+	* Jin, S., Notredame, C. and Erb, I., 2022. Compositional 
+	Covariance Shrinkage and Regularised Partial Correlations. 
+	arXiv preprint arXiv:2212.00496.
+	
+	* Erb, I., 2020. Partial correlations in compositional data analysis. 
+	Applied Computing and Geosciences, 6, p.100026.
+	
    * Quinn TP, Erb I, Gloor G, Notredame C, Richardson MF, Crowley TM
    (2019) A field guide for the compositional analysis of any-omics
    data. GigaScience 8(9). doi:10.1093/gigascience/giz107
@@ -230,6 +241,19 @@ phis = pairwise_phi(X + 1)
 # Otu000001   0.470005   0.000000   1.306492   1.237079
 # Otu000038   1.133602   1.306492   0.000000   2.157470
 # Otu000003   1.149336   1.237079   2.157470   0.000000
+
+```
+
+##### Partial correlation with basis shrinkage (requires scikit-learn)
+```
+# Pairwise partial correlation with basis shrinkage from Erb et al. 2020 and Jin et al. 2022
+pcorr = coda.pairwise_partial_correlation_with_basis_shrinkage(X + 1)
+# print(pcorr.iloc[:4,:4])
+#            Otu000514  Otu000001  Otu000038  Otu000003
+# Otu000514   1.000000   0.256310  -0.022194  -0.005131
+# Otu000001   0.256310   1.000000   0.105960   0.222187
+# Otu000038  -0.022194   0.105960   1.000000  -0.042785
+# Otu000003  -0.005131   0.222187  -0.042785   1.000000
 ```
 
 #### Isometric log-ratio transform *without* tree (requires scikit-bio)
@@ -317,6 +341,8 @@ fig, ax, prevalence_distribution = coda.plot_prevalence(X, classes=classes,  cla
 
 #### Notes:
 * Versions prior to v2020.12.16 used `ddof=0` for all variance except during the `vlr` calculation.  This was because `pandas._libs.algos.nancorr` uses `ddof=1` and not `ddof=0`.  This caused specific `rho` values not to be bound by [-1,1].  To retain the performance of `nancorr`, I've set all `ddof=1` to match `nancorr`. 
+* The partial correlation with basis shrinkage is implemented exactly the same as `propr` as the backend algorithm in the `corpcor` package uses an updated the Ledoit-Wolf shrinkage approach from [Opgen-Rhein, R., and K. Strimmer. 2007](doi.org/10.2202/1544-6115.1252) and [Schafer, J., and K. Strimmer. 2005](doi.org/10.2202/1544-6115.1175).
 
 #### Acknowledgements:
-  * Thank you to [Thomas Quinn](https://scholar.google.com/citations?user=h4nh0VoAAAAJ&hl=en&oi=sra) for your [insightful explanations of compositional data analysis](https://github.com/tpq/propr/issues/11)  and [Jamie Morton](https://scholar.google.com/citations?user=gwzQvp4AAAAJ&hl=en&oi=sra) for your [help in understanding isometric log-ratio transformations](https://github.com/biocore/gneiss/issues/262).
+  * [Thomas Quinn](https://scholar.google.com/citations?user=h4nh0VoAAAAJ&hl=en&oi=sra) for [insightful explanations of compositional data analysis](https://github.com/tpq/propr/issues/11)  and [Jamie Morton](https://scholar.google.com/citations?user=gwzQvp4AAAAJ&hl=en&oi=sra) for [help in understanding isometric log-ratio transformations](https://github.com/biocore/gneiss/issues/262).  
+  * [Ionas Erb](https://scholar.google.com/citations?user=4DeNxosAAAAJ&hl=en) and [Suzanne Jin](https://scholar.google.com/citations?user=7hSkrvoAAAAJ&hl=en) for their help in understanding partial correlation with basis shrinkage.
