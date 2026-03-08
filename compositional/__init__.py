@@ -1,13 +1,4 @@
 # -*- coding: utf-8 -*-
-
-__version__= "2026.3.8"
-__author__ = "Josh L. Espinoza"
-__email__ = "jespinoz@jcvi.org, jol.espinoz@gmail.com"
-__url__ = "https://github.com/jolespin/compositional"
-__license__ = "BSD-3"
-__developmental__ = True
-
-# -*- coding: utf-8 -*-
 from __future__ import print_function, division
 
 # Built-ins
@@ -27,6 +18,14 @@ import numpy as np
 import pandas as pd
 from pandas._libs.algos import nancorr
 from scipy.spatial.distance import pdist, squareform
+
+__version__= "2026.3.8"
+__author__ = "Josh L. Espinoza"
+__email__ = "jespinoz@jcvi.org, jol.espinoz@gmail.com"
+__url__ = "https://github.com/jolespin/compositional"
+__license__ = "Apache 2.0"
+__developmental__ = True
+
 
 # =========
 # Utilities
