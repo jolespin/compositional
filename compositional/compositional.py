@@ -1207,7 +1207,7 @@ def plot_compositions(
 
     figsize=(8,5),
     title=None,
-    style="seaborn-white",
+    style="ggplot",
 
     show_xgrid=True,
     show_ygrid=True,
@@ -1367,9 +1367,23 @@ def plot_compositions(
         number_of_classes = df_data["classes"].nunique()
 
         # Markers
-        if markers is not None:
-            markers = pd.Series(markers)
-            assert set(markers.index) == set(classes.unique()), "`markers` must be a pd.Series with all the classes from `classes`"
+        # Resolve marker style (matplotlib 3.8+ removed None as valid marker)
+        if markers is None:
+            _marker = "o"
+        elif isinstance(markers, pd.Series):
+            # seaborn's marker= expects a single value, not a per-class Series
+            # If all markers are the same, collapse; otherwise warn and use first
+            unique_markers = markers.unique()
+            if len(unique_markers) == 1:
+                _marker = unique_markers[0]
+            else:
+                warnings.warn(
+                    "Per-class markers via pd.Series are not supported by seaborn's marker= kwarg. "
+                    "Using the first marker value. Pass a single string to suppress this warning."
+                )
+                _marker = unique_markers[0]
+        else:
+            _marker = markers
 
     # Plotting
     with plt.style.context(style):
@@ -1569,7 +1583,7 @@ def plot_prevalence(
 
     figsize=(13,5),
     title=None,
-    style="seaborn-white",
+    style="ggplot",
 
     show_prevalence=[1,2,0.5,1.0],
     show_xgrid=True,

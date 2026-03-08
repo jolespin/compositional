@@ -1,4 +1,8 @@
 #### Changes:
+* [2026.3.8]:
+	* Changed default style from `seaborn-white` to `ggplot`
+	* Fixed issue with markers in `plot_compositional`
+
 * [2023.8.28]:
 
 	* Implemented `pairwise_partial_correlation_with_basis_shrinkage` using approaches from [Erb et al. 2020](https://www.sciencedirect.com/science/article/pii/S2590197420300082) and [Jin et al. 2022](https://arxiv.org/pdf/2212.00496.pdf)
