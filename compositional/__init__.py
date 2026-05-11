@@ -19,7 +19,7 @@ import pandas as pd
 from pandas._libs.algos import nancorr
 from scipy.spatial.distance import pdist, squareform
 
-__version__= "2026.3.8"
+__version__= "2026.5.11"
 __author__ = "Josh L. Espinoza"
 __email__ = "jespinoz@jcvi.org, jol.espinoz@gmail.com"
 __url__ = "https://github.com/jolespin/compositional"
@@ -1215,7 +1215,7 @@ def plot_compositions(
 
     figsize=(8,5),
     title=None,
-    style="ggplot",
+    style="seaborn-v0_8-white",
 
     show_xgrid=True,
     show_ygrid=True,
@@ -1591,7 +1591,7 @@ def plot_prevalence(
 
     figsize=(13,5),
     title=None,
-    style="ggplot",
+    style="seaborn-v0_8-white",
 
     show_prevalence=[1,2,0.5,1.0],
     show_xgrid=True,

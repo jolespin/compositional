@@ -1,4 +1,7 @@
+import os
 from setuptools import setup
+script_directory = os.path.abspath(os.path.dirname(__file__))
+
 
 # Version
 version = None
@@ -9,6 +12,14 @@ with open("compositional/__init__.py", "r") as f:
             version = line.split("=")[-1].strip().strip('"')
 assert version is not None, "Check version in compositional/__init__.py"
 
+requirements = list()
+with open(os.path.join(script_directory, 'requirements.txt')) as f:
+    for line in f.readlines():
+        line = line.strip()
+        if line:
+            if not line.startswith("#"):
+                requirements.append(line)
+
 setup(
 name='compositional',
     version=version,
@@ -18,8 +29,5 @@ name='compositional',
     author_email='jespinoz@jcvi.org',
     license='BSD-3',
     packages=["compositional"],
-    install_requires=[
-        "pandas",
-        "numpy",
-      ],
+    install_requires=requirements,
 )
